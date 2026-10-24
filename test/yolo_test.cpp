@@ -152,7 +152,7 @@ int main(int argc, char ** argv)
     }
 
     cv::imshow("YOLO 实时检测", frame);
-    if (cv::waitKey(1) == 'q') break;   // 按 q 退出
+    if (cv::waitKey(27) == 27) break;   // 按 ESC 退出
   }
 
   return 0;

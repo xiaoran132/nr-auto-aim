@@ -10,14 +10,33 @@ if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
-# OpenCV 官方预编译库（vc16 = MSVC 版）
-set(OpenCV_DIR "D:/opencv/opencv/build/x64/vc16/lib")
+# ---- OpenCV 定位 ----
+# 换机器时不用改本文件，按优先级覆盖：
+#   1) 命令行：cmake -DOpenCV_DIR="D:/opencv/opencv/build/x64/vc16/lib"
+#   2) 环境变量：set OpenCV_DIR=...   （Windows）
+#   3) 下面的本机默认值
+if(NOT OpenCV_DIR AND DEFINED ENV{OpenCV_DIR})
+    set(OpenCV_DIR "$ENV{OpenCV_DIR}")
+endif()
+if(NOT OpenCV_DIR)
+    set(OpenCV_DIR "D:/opencv/opencv/build/x64/vc16/lib")
+endif()
 find_package(OpenCV REQUIRED)
 
-set(OpenCV_BIN_DIR "D:/opencv/opencv/build/x64/vc16/bin")
+# 从 lib 目录推导同级的 bin 目录（.../build/x64/vc16/bin），不再写死第二处绝对路径
+get_filename_component(OpenCV_VC_DIR "${OpenCV_DIR}/.." ABSOLUTE)
+set(OpenCV_BIN_DIR "${OpenCV_VC_DIR}/bin")
 
-# 自动把 src/ 和 test/ 目录下的每个 .cpp 编译成一个独立的可执行程序
-# CONFIGURE_DEPENDS：新增/删除 .cpp 文件后，下次 Build 会自动重新扫描
+# 从 OpenCV 版本号推导 DLL 文件名（4.12.0 -> opencv_world4120.dll），
+# 换 OpenCV 版本时不用手改这三行
+string(REPLACE "." "" OPENCV_VERSION_SHORT "${OpenCV_VERSION}")
+set(OPENCV_WORLD_DLL   "${OpenCV_BIN_DIR}/opencv_world${OPENCV_VERSION_SHORT}.dll")
+set(OPENCV_WORLD_DLL_D "${OpenCV_BIN_DIR}/opencv_world${OPENCV_VERSION_SHORT}d.dll")
+set(OPENCV_FFMPEG_DLL  "${OpenCV_BIN_DIR}/opencv_videoio_ffmpeg${OPENCV_VERSION_SHORT}_64.dll")
+
+
+
+#文件目录
 file(GLOB EXAMPLE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp"
@@ -30,9 +49,9 @@ foreach(src ${EXAMPLE_SOURCES})
     # 编译后复制 OpenCV DLL 到 exe 目录，避免运行时找不到 DLL
     add_custom_command(TARGET ${example_name} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${OpenCV_BIN_DIR}/opencv_world4120.dll"
-            "${OpenCV_BIN_DIR}/opencv_world4120d.dll"
-            "${OpenCV_BIN_DIR}/opencv_videoio_ffmpeg4120_64.dll"
+            "${OPENCV_WORLD_DLL}"
+            "${OPENCV_WORLD_DLL_D}"
+            "${OPENCV_FFMPEG_DLL}"
             "$<TARGET_FILE_DIR:${example_name}>"
         # 顺便把 YOLO 模型和类别文件复制到 exe 目录，运行时用相对路径就能找到
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
