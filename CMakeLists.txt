@@ -10,28 +10,11 @@ if(MSVC)
     add_compile_options(/utf-8)
 endif()
 
-# ---- OpenCV 定位 ----
-# 换机器时不用改本文件，按优先级覆盖：
-#   1) 命令行：cmake -DOpenCV_DIR="D:/opencv/opencv/build/x64/vc16/lib"
-#   2) 环境变量：set OpenCV_DIR=...   （Windows）
-#   3) 下面的本机默认值
-if(NOT OpenCV_DIR AND DEFINED ENV{OpenCV_DIR})
-    set(OpenCV_DIR "$ENV{OpenCV_DIR}")
-endif()
-if(NOT OpenCV_DIR)
-    set(OpenCV_DIR "C:/dev/opencv/install_ov/lib")
-endif()
+# OpenCV 官方预编译库（vc16 = MSVC 版）
+set(OpenCV_DIR "D:/opencv/opencv/build/x64/vc16/lib")
 find_package(OpenCV REQUIRED)
 
-# 从 lib 目录推导同级的 bin 目录（.../build/x64/vc16/bin），不再写死第二处绝对路径
-get_filename_component(OpenCV_VC_DIR "${OpenCV_DIR}/.." ABSOLUTE)
-set(OpenCV_BIN_DIR "${OpenCV_VC_DIR}/bin")
-
-# 从 OpenCV 版本号推导 DLL 文件名（4.12.0 -> opencv_world4120.dll），
-# 换 OpenCV 版本时不用手改这三行
-string(REPLACE "." "" OPENCV_VERSION_SHORT "${OpenCV_VERSION}")
-set(OPENCV_WORLD_DLL   "${OpenCV_BIN_DIR}/opencv_world${OPENCV_VERSION_SHORT}.dll")
-set(OPENCV_FFMPEG_DLL  "${OpenCV_BIN_DIR}/opencv_videoio_ffmpeg${OPENCV_VERSION_SHORT}_64.dll")
+set(OpenCV_BIN_DIR "D:/opencv/opencv/build/x64/vc16/bin")
 
 # ---- OpenVINO Runtime（重新编译带 OpenVINO 后端的 OpenCV 后，运行时需要）----
 # 换机器/换 OpenVINO 版本时改这一个目录即可
@@ -60,18 +43,15 @@ file(GLOB EXAMPLE_SOURCES CONFIGURE_DEPENDS
 foreach(src ${EXAMPLE_SOURCES})
     get_filename_component(example_name ${src} NAME_WE)
     add_executable(${example_name} ${src})
-    target_link_libraries(${example_name} PRIVATE ${OpenCV_LIBS} openvino::runtime)
+    target_link_libraries(${example_name} PRIVATE ${OpenCV_LIBS})
     # 编译后复制 OpenCV DLL 到 exe 目录，避免运行时找不到 DLL
+    if(WIN32)
     add_custom_command(TARGET ${example_name} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${OPENCV_WORLD_DLL}"
             "${OPENCV_FFMPEG_DLL}"
             "$<TARGET_FILE_DIR:${example_name}>"
-
-
-
-        # OpenVINO Runtime DLL（加载 .xml/.bin 模型时运行期需要）
-        #加载openCV编译时带的OpenVINO后端插件DLL，避免运行时找不到DLL
+        # 顺便把 YOLO 模型和类别文件复制到 exe 目录，运行时用相对路径就能找到
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${OPENVINO_RUNTIME_BIN}/openvino.dll"
             "${OPENVINO_RUNTIME_BIN}/openvino_intel_cpu_plugin.dll"
