@@ -153,7 +153,10 @@ static void draw(cv::Mat& img, const vector<Detection>& dets) {
 
         string label = CLASS_NAMES[d.class_id] + " " + to_string(d.score).substr(0, 4);
         cv::putText(img, label, cv::Point(d.bbox.x, std::max(d.bbox.y - 5, 0)),
+        //cv::Point(d.bbox.x, std::max(d.bbox.y - 5, 0))	表示文字左下角的坐标
                     cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 255), 2);
+                    //(0, 255, 255)表示颜色（黄）2表示线条粗细 0.6表示字体大小，
+                    //FONT_HERSHEY_SIMPLEX,表示字体（OpenCV 内置的无衬线字体）
     }
 }
 

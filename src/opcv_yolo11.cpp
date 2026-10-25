@@ -1,14 +1,3 @@
-#include <iostream>
-#include <opencv2/opencv.hpp>
-#include <opencv2/dnn.hpp>          // 只用 blobFromImage 做预处理，不碰 OpenVINO 后端
-#include <openvino/openvino.hpp>    // OpenVINO C++ API
-#include <vector>
-#include <string>
-#include <cmath>
-#include <cstring>
-
-using namespace std;
-
 // =====================================================================
 // 模型输出格式（已从 yolo11.xml / yolo11.bin 逆向确认）：
 //   forward() 输出 shape = [1, 50, 8400]
@@ -25,6 +14,17 @@ using namespace std;
 // 而 OpenVINO 2024.6 运行时本身能正常加载并推理该模型。
 // =====================================================================
 
+#include <iostream>
+#include <opencv2/opencv.hpp>
+#include <opencv2/dnn.hpp>          // 只用 blobFromImage 做预处理，不碰 OpenVINO 后端
+#include <openvino/openvino.hpp>    // OpenVINO C++ API
+#include <vector>
+#include <string>
+#include <cmath>
+#include <cstring>
+
+using namespace std;
+
 const int   INPUT_SIZE     = 640;   // 模型输入边长
 const int   NUM_KEYPOINTS  = 4;     // 关键点个数
 const int   NUM_CLASSES    = 38;    // 类别数
@@ -37,13 +37,14 @@ const float CONF_THRESHOLD = 0.25f; // 置信度阈值：类别分数（已 sigm
 const float NMS_THRESHOLD  = 0.45f; // 非极大值抑制 IoU 阈值
 
 // 类别名：请替换成你训练时用的 38 个真实类名（当前是占位符）
+//运用循环开始直接生成38个。写入动态数组
 static vector<string> make_class_names() {
     vector<string> v;
     for (int i = 0; i < NUM_CLASSES; ++i)
         v.push_back("class" + to_string(i));
     return v;
 }
-static const vector<string> CLASS_NAMES = make_class_names();
+static const vector<string> CLASS_NAMES = make_class_names();//
 
 // 一个检测结果
 struct Detection {
@@ -134,7 +135,6 @@ static void nms(vector<Detection>& dets, float iou_thresh) {
     // 先按置信度从高到低排
     std::sort(dets.begin(), dets.end(),
               [](const Detection& a, const Detection& b) { return a.score > b.score; });
-
     vector<Detection> kept;
     for (auto& d : dets) {
         bool keep = true;
@@ -153,18 +153,25 @@ static void nms(vector<Detection>& dets, float iou_thresh) {
 // 在画面上画框、关键点和标签
 static void draw(cv::Mat& img, const vector<Detection>& dets) {
     for (const auto& d : dets) {
-        cv::rectangle(img, d.bbox, cv::Scalar(0, 255, 0), 2);
-
+        cv::rectangle(img, d.bbox, cv::Scalar(0, 255, 0), 2);//d.bbox	矩形区域（左上角 + 宽高，或左上+右下
         // 4 个关键点：画圆点，并按顺序连线
         for (size_t k = 0; k < d.keypoints.size(); ++k) {
-            cv::circle(img, d.keypoints[k], 3, cv::Scalar(0, 0, 255), -1);
+            cv::circle(img, d.keypoints[k], 3, cv::Scalar(0, 0, 255), -1);//画出关键原点
+            //d.keypoints[k]	圆心坐标
+            //3	圆的半径 = 3 像素
+            //cv::Scalar(0, 0, 255)	BGR 顺序 → 红色
+            //-1	线宽为 -1 表示实心圆
             if (k > 0)
-                cv::line(img, d.keypoints[k - 1], d.keypoints[k], cv::Scalar(255, 0, 0), 1);
+                cv::line(img, d.keypoints[k - 1], d.keypoints[k], cv::Scalar(255, 0, 0), 1);//相邻关键点连线
         }
 
-        string label = CLASS_NAMES[d.class_id] + " " + to_string(d.score).substr(0, 4);
+        string label = CLASS_NAMES[d.class_id] + " " + to_string(d.score).substr(0, 4);//标记类型
+        if(CLASS_NAMES[d.class_id] == "class9") cout<<"text"<<endl;//类型在这个测试代码当中用的是CLASS_NAMES[d.class_id]进行标记
         cv::putText(img, label, cv::Point(d.bbox.x, std::max(d.bbox.y - 5, 0)),
-                    cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 255), 2);
+                    cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(0, 0, 255), 1);
+                    //(0, 255, 255)表示颜色（黄），(0, 0, 255)表示颜色（红）
+                    //1表示线条粗细 0.4表示字体大小，
+                    //FONT_HERSHEY_SIMPLEX,表示字体（OpenCV 内置的无衬线字体）
     }
 }
 
@@ -188,8 +195,9 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // 2. 打开摄像头
+    // 2. 打开摄像头，0表示默认摄像头，如果有多个摄像头，可以尝试1、2等
     cv::VideoCapture cap(0);
+
     if (!cap.isOpened()) {
         cerr << "Error_opening camera (index 0)" << endl;//判断是否打开摄像头
         return -1;
