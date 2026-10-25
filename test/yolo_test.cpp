@@ -66,7 +66,7 @@ int main(int argc, char ** argv)
     if (frame.empty()) break;
 
     // 3. letterbox 预处理：把画面等比缩放到 640x640，四周用灰色填充
-    //    （YOLO 需要正方形输入，直接拉伸会变形，所以要等比缩放 + 填充）
+    //    （YOLO 需要正方形输入，直接拉伸会变形，所以要等比缩放 + 填充）S
     float scale = std::min(
       static_cast<float>(INPUT_SIZE) / frame.cols,
       static_cast<float>(INPUT_SIZE) / frame.rows);
