@@ -18,6 +18,8 @@ if(Win)
     set(OpenCV_BIN_DIR "D:/opencv/opencv/build/x64/vc16/bin")
 #兼容新加的，if-elseif
 elseif(linux)
+    # 强制指定 Linux 默认编译安装路径（根据自己的来改）
+    set(OpenCV_DIR "/usr/local/lib/cmake/opencv4")
     find_package(OpenCV REQUIRED)
 endif()
 
