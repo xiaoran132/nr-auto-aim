@@ -2,6 +2,7 @@
 #include<opencv2/opencv.hpp>
 #include<opencv2/dnn.hpp>
 #include<sstream>
+#include<iomanip>
 
 using namespace std;
 
@@ -113,8 +114,7 @@ int main(){
         cv::imshow("111111", frame1); //显示画面
 
         if(cv::waitKey(1) == 27) //按ESC键退出，esc键的ASCII码是27
-            break;
-    }
+            b
     //释放摄像头资源
     cap.release();
     cap1.release();

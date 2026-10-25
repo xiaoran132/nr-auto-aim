@@ -75,10 +75,10 @@ int main(int argc, char ** argv)
     int pad_x = (INPUT_SIZE - new_w) / 2;
     int pad_y = (INPUT_SIZE - new_h) / 2;
 
-    cv::Mat resized;
-    cv::resize(frame, resized, {new_w, new_h});
-    cv::Mat input(INPUT_SIZE, INPUT_SIZE, CV_8UC3, cv::Scalar(114, 114, 114));
-    resized.copyTo(input(cv::Rect(pad_x, pad_y, new_w, new_h)));
+    cv::Mat resized;// letterbox 缩放
+    cv::resize(frame, resized, {new_w, new_h});// 填充灰色
+    cv::Mat input(INPUT_SIZE, INPUT_SIZE, CV_8UC3, cv::Scalar(114, 114, 114));// 填充灰色
+    resized.copyTo(input(cv::Rect(pad_x, pad_y, new_w, new_h)));// 把缩放后的画面拷贝到灰色背景上
 
     // 转成 blob（归一化到 [0,1]）并送入网络
     cv::Mat blob = cv::dnn::blobFromImage(input, 1.0 / 255.0, {INPUT_SIZE, INPUT_SIZE}, cv::Scalar(), true, false);
