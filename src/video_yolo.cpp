@@ -197,6 +197,7 @@ int main(int argc, char** argv) {
 
     // 2. 打开视频文件进行测试（不读取摄像头）
     cv::VideoCapture cap(R"(C:\Users\xwct\Desktop\nr-auto-aim\video_test\test.mp4)");
+    //cv::VideoCapture cap(0);   //打开摄像头
 
     if (!cap.isOpened()) {
         cerr << "Error_opening video file (test.mp4)" << endl;//判断是否打开视频
