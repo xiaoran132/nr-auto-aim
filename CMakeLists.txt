@@ -11,13 +11,13 @@ if(MSVC)
 endif()
 
 # OpenCV 官方预编译库（vc16 = MSVC 版）
-if(Win)
+if(Win32)
     set(OpenCV_DIR "D:/opencv/opencv/build/x64/vc16/lib")
     find_package(OpenCV REQUIRED)
     
     set(OpenCV_BIN_DIR "D:/opencv/opencv/build/x64/vc16/bin")
 #兼容新加的，if-elseif
-elseif(linux)
+elseif(UNIX)
     # 强制指定 Linux 默认编译安装路径（根据自己的来改）
     set(OpenCV_DIR "/usr/local/lib/cmake/opencv4")
     find_package(OpenCV REQUIRED)
