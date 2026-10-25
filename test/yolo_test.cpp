@@ -47,7 +47,7 @@ int main(int argc, char ** argv)
   const std::string model_path = (argc > 1) ? argv[1] : "yolov5s.onnx";
   const std::string names_path = (argc > 2) ? argv[2] : "coco.names";
 
-  auto classes = load_classes(names_path);
+  auto classes = load_classes(names_path);//判断命名模型加载是否成功
   if (classes.empty()) return -1;
 
   // 1. 加载 YOLO 模型（ONNX 格式）

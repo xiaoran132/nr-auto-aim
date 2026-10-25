@@ -54,10 +54,15 @@ foreach(src ${EXAMPLE_SOURCES})
             "${OPENCV_FFMPEG_DLL}"
             "$<TARGET_FILE_DIR:${example_name}>"
         # 顺便把 YOLO 模型和类别文件复制到 exe 目录，运行时用相对路径就能找到
+
+
+        #添加模型文件
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_CURRENT_SOURCE_DIR}/yolov5s.onnx"
-            "${CMAKE_CURRENT_SOURCE_DIR}/coco.names"
-            "$<TARGET_FILE_DIR:${example_name}>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/assents/yolov5s.onnx"
+            "${CMAKE_CURRENT_SOURCE_DIR}/assents/coco.names"
+            "$<{CMAKE_CURRENT_BINARY_DIR}/assents_sp/yolov5.xml"
+            "$<{CMAKE_CURRENT_BINARY_DIR}/assents_sp/yolov5.bin"
+            #"$<TARGET_FILE_DIR:${example_name}>"
         COMMENT "Copying OpenCV DLLs and model files for ${example_name}"
     )
 endforeach()
