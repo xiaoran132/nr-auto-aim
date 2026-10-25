@@ -114,7 +114,9 @@ int main(){
         cv::imshow("111111", frame1); //显示画面
 
         if(cv::waitKey(1) == 27) //按ESC键退出，esc键的ASCII码是27
-            b
+            break;
+    } // while(true) 循环结束
+
     //释放摄像头资源
     cap.release();
     cap1.release();

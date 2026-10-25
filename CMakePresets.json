@@ -12,7 +12,7 @@
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_CXX_STANDARD": "17",
-        "OpenCV_DIR": "D:/opencv/opencv/build/x64/vc16/lib"
+        "OpenCV_DIR": "C:/dev/opencv/install_ov/lib"
       }
     }
   ],

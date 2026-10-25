@@ -27,8 +27,8 @@ const float NMS_THRESHOLD  = 0.45f; // 非极大值抑制 IoU 阈值
 // 类别名：请替换成你训练时用的 13 个真实类名
 //
 static const vector<string> CLASS_NAMES = {
-    "class0", "class1", "class2", "class3", "class4", "class5", "class6",
-    "class7", "class8", "section5", "class10", "class11", "class12"
+    "plate3", "class1", "class2", "class3", "class4", "class5", "class6",
+    "class7", "class8", "plate5", "class10", "class11", "class12"
 };
 
 // 一个检测结果
