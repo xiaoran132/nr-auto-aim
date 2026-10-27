@@ -22,6 +22,7 @@
 #include <string>
 #include <cmath>
 #include <cstring>
+#include<iomanip>
 
 using namespace std;
 
@@ -35,6 +36,10 @@ const int   NUM_CANDIDATES = 8400;   // 候选数 = 80*80 + 40*40 + 20*20
 
 const float CONF_THRESHOLD = 0.25f; // 置信度阈值：类别分数（已 sigmoid）低于它丢弃
 const float NMS_THRESHOLD  = 0.45f; // 非极大值抑制 IoU 阈值
+
+double fps = 0.0;
+
+double T_start = (double)cv::getTickCount();//获取时间戳
 
 // 类别名：请替换成你训练时用的 38 个真实类名（当前是占位符）
 //运用循环开始直接生成38个。写入动态数组
@@ -213,6 +218,27 @@ int main(int argc, char** argv) {
             cout << "视频读取结束或读取失败" << endl;
             break;
         }
+
+        double T_end = (double)cv::getTickCount();
+        double time = (T_end - T_start)/cv::getTickFrequency();//获取时间差
+
+        if(time > 0){
+            fps = 0.9 * fps + 0.1 * (1.0 / time);
+        }
+        T_start = T_end;
+
+        stringstream str_fps;
+            str_fps  <<"FPS:"<<fixed<<setprecision(1)<<fps;
+
+
+        cv::putText(frame,
+            str_fps.str(),
+            cv::Point(10,30),
+            cv::FONT_HERSHEY_SIMPLEX,
+            1.0,
+            cv::Scalar(0,0,225),
+            1,
+            cv::LINE_AA);
 
         // 3. letterbox 预处理（等比缩放 + 填充，而不是直接拉伸变形）
         float scale = 0.0f;
