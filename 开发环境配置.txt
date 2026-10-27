@@ -1,0 +1,177 @@
+首先
+Ctrl + Alt  + T
+
+sudo apt update
+sudo apt install build-essential libssl-dev
+
+然后安装Cmake链接
+wget https://github.com/Kitware/CMake/releases/download/v4.5.0-rc1/cmake-4.5.0-rc1-linux-x86_64.tar.gz
+
+mkdir Cmake
+
+cd Cmake
+
+mv ~/cmake-4.5.0-rc1-linux-x86*.tar.gz .
+
+tar -xzf cmake-4.5.0-rc1-linux-x86_64.tar.gz             //解压文件
+
+添加环境变量
+echo 'export PATH="$HOME/Cmake/cmake-4.5.0-rc1-linux-x86_64/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+验证
+cmake --version
+
+安装OpenCV
+sudo apt install libopencv-dev
+
+安装编译依赖
+sudo apt install build-essential cmake git pkg-config libgtk-3-dev libavcodec-dev libavformat-dev libswscale-dev libv4l-dev libxvidcore-dev libx264-dev libjpeg-dev libpng-dev libtiff-dev gfortran openexr libatlas-base-dev python3-dev python3-numpy libtbb2 libtbb-dev libdc1394-dev
+
+安装 OpenCL (Intel GPU 驱动与运行时)
+
+sudo apt install --reinstall ca-certificates
+
+# 1. 导入 Intel 的 GPG 公钥
+wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | \
+sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+
+
+wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
+sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+
+# 2. 添加 Intel GPU 的 APT 仓库
+echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy/lts/2350 unified" | \
+sudo tee /etc/apt/sources.list.d/intel-gpu-jammy.list
+
+
+切回位置路径
+echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
+sudo tee /etc/apt/sources.list.d/intel-gpu-jammy.list
+sudo apt update
+
+安装驱动
+sudo apt install -y \
+    libze-intel-gpu1=24.52.32224.14-1077~22.04 \
+    libze1=1.19.2.0-1077~22.04 \
+    intel-opencl-icd=24.52.32224.14-1077~22.04 \
+    clinfo
+
+加入用户组
+sudo gpasswd -a ${USER} render
+newgrp render
+
+
+# 3. 更新软件包列表
+sudo apt update
+
+安装OpenVINO 2024.6.0
+
+sudo mkdir -p /opt/intel
+
+wget https://storage.openvinotoolkit.org/repositories/openvino/packages/2024.6/linux/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64.tgz
+
+解压
+sudo tar -xzf l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64.tgz -C /opt/intel
+
+安装依赖并配置环境
+cd /opt/intel/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64/install_dependencies
+sudo -E ./install_openvino_dependencies.sh
+初始化环境变量，避免每次打开重新配置问题
+source /opt/intel/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64/setupvars.sh
+示例测试
+cd /opt/intel/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64/samples/cpp
+sudo ./build_samples.sh
+
+
+进入编译目录
+cd ~/openvino_cpp_samples_build/intel64/Release
+
+source /opt/intel/l_openvino_toolkit_ubuntu22_2024.6.0.17404.4c0f47d2335_x86_64/setupvars.s
+
+环境欺骗
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
+./build_samples.sh
+
+
+
+补充插件
+sudo apt install -y libtbb-dev libpugixml-dev ocl-icd-opencl-dev opencl-headers
+
+sudo apt install -y libgflags-dev libgoogle-glog-dev libblas-dev liblapack-dev libsuitesparse-dev
+
+安装libeigen3
+sudo apt install libeigen3-dev
+
+dpkg -s libeigen3-dev | grep Version 期望输出3.4左右
+
+安装libceres-dev
+# 第一步：安装 OpenVINO 补充依赖与通用库
+sudo apt install -y libtbb-dev libpugixml-dev ocl-icd-opencl-dev opencl-headers \
+libfmt-dev libspdlog-dev libyaml-cpp-dev libusb-1.0-0-dev nlohmann-json3-dev
+
+
+# 第二步：安装 OpenCV 媒体支持（可选，按需）
+sudo apt install -y libavcodec-dev libavformat-dev libswscale-dev
+
+
+# 第三步：处理 Ceres 及其依赖（先确认 Eigen 版本）
+sudo apt install libeigen3-dev
+dpkg -s libeigen3-dev | grep Version   
+# 检查是否在 3.4.0 ~ 3.4.1 区间
+
+
+# 确认无误后：
+sudo apt install -y libceres-dev libgflags-dev libgoogle-glog-dev \
+libblas-dev liblapack-dev libsuitesparse-dev
+
+Cmake相关工具
+sudo apt install -y gdb valgrind ninja-build clang-format
+
+ OpenCV 的 GUI 与视频编解码依赖
+sudo apt install -y libgtk-3-dev libavcodec-dev libavformat-dev libswscale-dev libv4l-dev
+
+ Ceres Solver 的隐式依赖：abseil 与 GTest
+sudo apt install -y libabsl-dev libgtest-dev
+
+通用 C++ 开发基础库
+sudo apt install -y libssl-dev zlib1g-dev libcurl4-openssl-dev libboost-all-dev
+
+
+
+
+安装Cmake4.2，防止出现不兼容问题
+cd ~/Cmake
+wget https://github.com/Kitware/CMake/releases/download/v4.2.5/cmake-4.2.5-linux-x86_64.tar.gz
+tar -xzf cmake-4.2.5-linux-x86_64.tar.gz
+
+
+sudo mv /usr/bin/cmake /usr/bin/cmake.system.bak
+
+
+# 注册系统自带的 cmake（如果之前没注册过，先确认路径 /usr/bin/cmake 是否指向系统版本）
+sudo update-alternatives --install /usr/bin/cmake cmake /usr/bin/cmake 10
+
+# 注册你之前安装的 4.5
+sudo update-alternatives --install /usr/bin/cmake cmake /home/xwct/Cmake/cmake-4.5.0-rc1-linux-x86_64/bin/cmake 50
+
+# 注册新下载的 4.2
+sudo update-alternatives --install /usr/bin/cmake cmake /home/xwct/Cmake/cmake-4.2.5-linux-x86_64/bin/cmake 40
+
+# 这行命令会精准删除包含 cmake-4.5 的那行 PATH 设置
+sed -i '/cmake-4.5/d' ~/.bashrc
+
+# 刷新环境变量
+source ~/.bashrc
+
+
+注册完成后，用以下命令交互式切换：
+sudo update-alternatives --config cmake
+
+查看版本
+cmake --version
+
+
+
+安装git
+sudo apt install -y git

@@ -1,0 +1,10 @@
+# 二进制模型文件必须按二进制处理，禁止 Git 做换行符/编码转换。
+# 否则（core.autocrlf=true 时）ONNX/权重文件会被 CRLF 转换破坏，protobuf 解析直接失败。
+*.onnx   binary
+*.bin    binary
+*.pt     binary
+*.pth    binary
+*.pb     binary
+*.tflite binary
+*.engine binary
+*.trt    binary
