@@ -183,8 +183,8 @@ static void draw(cv::Mat& img, const vector<Detection>& dets) {
 int main(int argc, char** argv) {
     // 读取模型文件路径（OpenVINO IR 格式）
     //根据开发需要自行修改
-    string xml_path = R"(C:\Users\xwct\Desktop\nr-auto-aim\assents_sp\yolo11.xml)";
-    string bin_path = R"(C:\Users\xwct\Desktop\nr-auto-aim\assents_sp\yolo11.bin)";
+    string xml_path = R"(assents_sp/yolo11.xml)";
+    string bin_path = R"(assents_sp/yolo11.bin)";
 
     // 1. 加载 YOLO 模型并编译（OpenVINO C++ API）
     ov::Core            core;
@@ -201,7 +201,7 @@ int main(int argc, char** argv) {
     }
 
     // 2. 打开视频文件进行测试（不读取摄像头）
-    cv::VideoCapture cap(R"(C:\Users\xwct\Desktop\nr-auto-aim\video_test\test.mp4)");
+    cv::VideoCapture cap(R"(video_test/test.mp4)");
     //cv::VideoCapture cap(0);   //打开摄像头
 
     if (!cap.isOpened()) {
