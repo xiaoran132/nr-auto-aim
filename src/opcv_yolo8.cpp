@@ -1,34 +1,46 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
-#include <opencv2/dnn.hpp>
+#include <opencv2/dnn.hpp>          // 只用 blobFromImage 做预处理，不碰 OpenVINO 后端
+#include <openvino/openvino.hpp>    // OpenVINO C++ API
 #include <vector>
 #include <string>
 #include <cmath>
+#include <cstring>
 
 using namespace std;
 
 // =====================================================================
 // 模型输出格式（已从 yolov8.xml / yolov8.bin 逆向确认）：
-//   forward() 输出 shape = [1, 14, 3549]
+//   forward() 输出 shape = [1, 14, 3549]，输出节点名 output0
 //     14 通道按顺序（channel-major）：
 //       [0:4]   bbox  [cx, cy, w, h]  —— 已乘 stride，416x416 像素坐标
 //       [4:6]   2 个类别分数          —— 已 sigmoid（模型内嵌了 Sigmoid）
 //       [6:14]  4 个关键点 (x,y)      —— 已解码，416x416 像素坐标
 //   3549 = 52*52 + 26*26 + 13*13（anchor-free，输入 416，每格一个候选）
 //   与 yolov5 的区别：输入 416 而非 640；无 objectness；类别已 sigmoid。
+//
+// 注意：本文件用 OpenVINO C++ API 直接推理，而不是 OpenCV dnn 的
+// readNetFromModelOptimizer。原因是发行版 OpenCV 4.5.4 编译时未开启
+// WITH_OPENVINO，readNetFromModelOptimizer 会报：
+//   "Build OpenCV with Inference Engine to enable loading models
+//    from Model Optimizer."
+// 而本机已安装 OpenVINO 2024.6 运行时，直接用它加载该 INT8 IR 模型即可。
 // =====================================================================
 
 const int   INPUT_SIZE     = 416;   // 模型输入边长（注意：不是 640）
 const int   NUM_KEYPOINTS  = 4;     // 关键点个数
 const int   NUM_CLASSES    = 2;     // 类别数
+const int   CLS_OFFSET     = 4;                       // 类别起始通道
+const int   KPT_OFFSET     = 4 + NUM_CLASSES;         // 关键点起始通道
 const int   OUTPUT_DIM     = 4 + NUM_CLASSES + NUM_KEYPOINTS * 2;  // = 14
+const int   NUM_CANDIDATES = 3549;   // 候选数 = 52*52 + 26*26 + 13*13
 
 const float CONF_THRESHOLD = 0.25f; // 置信度阈值：类别分数（已 sigmoid）低于它丢弃
 const float NMS_THRESHOLD  = 0.45f; // 非极大值抑制 IoU 阈值
 
-// 类别名：请替换成你训练时用的 2 个真实类名
+// 类别名：模型元信息里 names = {0: 'B', 1: 'R'}
 static const vector<string> CLASS_NAMES = {
-    "class0", "class1"
+    "B", "R"
 };
 
 // 一个检测结果
@@ -62,29 +74,26 @@ static cv::Mat letterbox(const cv::Mat& src, float& scale, int& pad_x, int& pad_
     return canvas;
 }
 
-// 后处理：把 [1, 14, 3549] 解析成检测结果列表（含置信度过滤）
-static vector<Detection> postprocess(const cv::Mat& output,
+// 后处理：把 [1, 14, 3549]（channel-major 的 float*）解析成检测结果列表（含置信度过滤）
+static vector<Detection> postprocess(const float* out,
                                      float scale, int pad_x, int pad_y,
                                      int img_w, int img_h) {
-    // yolov8 输出是 [1, 14, 3549]（通道优先），先把 batch 维压掉得到 [14, 3549]，
-    // 再转置成 [3549, 14]，这样一行就是一个候选，方便按行读取。
-    cv::Mat out = output.reshape(1, output.size[1]); // [14, 3549]
-    cv::transpose(out, out);                         // [3549, 14]
-
     vector<Detection> dets;
 
-    for (int i = 0; i < out.rows; ++i) {
-        const float* row = out.ptr<float>(i);
-
+    for (int i = 0; i < NUM_CANDIDATES; ++i) {
         // bbox [cx, cy, w, h]，已是像素坐标
-        float cx = row[0], cy = row[1], w = row[2], h = row[3];
+        float cx = out[0 * NUM_CANDIDATES + i];
+        float cy = out[1 * NUM_CANDIDATES + i];
+        float w  = out[2 * NUM_CANDIDATES + i];
+        float h  = out[3 * NUM_CANDIDATES + i];
 
         // 类别分数已 sigmoid，取最大作为置信度（YOLOv8 无 objectness）
         int   best_cls = 0;
-        float best_score = row[4];
+        float best_score = out[CLS_OFFSET * NUM_CANDIDATES + i];
         for (int c = 1; c < NUM_CLASSES; ++c) {
-            if (row[4 + c] > best_score) {
-                best_score = row[4 + c];
+            float s = out[(CLS_OFFSET + c) * NUM_CANDIDATES + i];
+            if (s > best_score) {
+                best_score = s;
                 best_cls = c;
             }
         }
@@ -110,8 +119,8 @@ static vector<Detection> postprocess(const cv::Mat& output,
 
         // 4 个关键点：通道 [6:14] = (x1,y1, x2,y2, x3,y3, x4,y4)，反算回原图
         for (int k = 0; k < NUM_KEYPOINTS; ++k) {
-            float x = (row[6 + k * 2 + 0] - pad_x) / scale;
-            float y = (row[6 + k * 2 + 1] - pad_y) / scale;
+            float x = (out[(KPT_OFFSET + k * 2 + 0) * NUM_CANDIDATES + i] - pad_x) / scale;
+            float y = (out[(KPT_OFFSET + k * 2 + 1) * NUM_CANDIDATES + i] - pad_y) / scale;
             x = std::max(0.0f, std::min(static_cast<float>(img_w - 1), x));
             y = std::max(0.0f, std::min(static_cast<float>(img_h - 1), y));
             d.keypoints.push_back(cv::Point2f(x, y));
@@ -167,18 +176,23 @@ int main(int argc, char** argv) {
     string xml_path = PROJECT_ROOT_DIR "/assents_sp/yolov8.xml";
     string bin_path = PROJECT_ROOT_DIR "/assents_sp/yolov8.bin";
 
-    // 1. 加载 YOLO 模型（OpenVINO IR 格式）
-    cv::dnn::Net net;
+    // 1. 加载 YOLO 模型并编译（OpenVINO C++ API）
+    ov::Core          core;
+    ov::CompiledModel compiled;
+    ov::InferRequest  infer_request;
     try {
-        net = cv::dnn::readNetFromModelOptimizer(xml_path, bin_path);
+        std::shared_ptr<ov::Model> model = core.read_model(xml_path, bin_path);
+        compiled = core.compile_model(model, "CPU");
+        infer_request = compiled.create_infer_request();
     }
-    catch (const cv::Exception& e) {
+    catch (const std::exception& e) {
         cerr << "Error loading model: " << e.what() << endl;//判断是否加载成功
         return -1;
     }
 
     // 2. 打开摄像头
-    cv::VideoCapture cap(0);
+    cv::VideoCapture cap(PROJECT_ROOT_DIR "/video_test/test.mp4");
+    //v::VideoCapture cap(0);
     if (!cap.isOpened()) {
         cerr << "Error_opening camera (index 0)" << endl;//判断是否打开摄像头
         return -1;
@@ -199,28 +213,35 @@ int main(int argc, char** argv) {
         int pad_x = 0, pad_y = 0;
         cv::Mat input = letterbox(frame, scale, pad_x, pad_y);
 
-        // 4. 转 blob 并推理
+        // 4. 转 blob（[1,3,416,416] float32 NCHW，BGR->RGB，除以 255），填进 OpenVINO 输入张量
         cv::Mat blob = cv::dnn::blobFromImage(input, 1.0 / 255.0,
                                               cv::Size(INPUT_SIZE, INPUT_SIZE),
                                               cv::Scalar(), true, false); // swapRB=true: BGR->RGB
-        net.setInput(blob);
-        cv::Mat output = net.forward();
+        ov::Tensor in_tensor = infer_request.get_input_tensor(0);
+        std::memcpy(in_tensor.data<float>(), blob.ptr<float>(),
+                    blob.total() * blob.elemSize());
+
+        // 5. 推理
+        infer_request.infer();
+        const ov::Tensor& out_tensor = infer_request.get_output_tensor(0);
+        const float* out = out_tensor.data<float>();
 
         // 打印一次输出 shape，方便核对（应为 1 x 14 x 3549）
         if (!printed_shape) {
-            cout << "output dims: " << output.dims << "  [";
-            for (int i = 0; i < output.dims; ++i)
-                cout << output.size[i] << (i + 1 < output.dims ? ", " : "");
+            ov::Shape sh = out_tensor.get_shape();
+            cout << "output dims: [";
+            for (size_t i = 0; i < sh.size(); ++i)
+                cout << sh[i] << (i + 1 < sh.size() ? ", " : "");
             cout << "]" << endl;
             printed_shape = true;
         }
 
-        // 5. 后处理：解析 -> 过滤 -> NMS
-        vector<Detection> dets = postprocess(output, scale, pad_x, pad_y,
+        // 6. 后处理：解析 -> 过滤 -> NMS
+        vector<Detection> dets = postprocess(out, scale, pad_x, pad_y,
                                              frame.cols, frame.rows);
         nms(dets, NMS_THRESHOLD);
 
-        // 6. 画框并显示
+        // 7. 画框并显示
         draw(frame, dets);
         cv::imshow("yolo8_Out", frame);
 
