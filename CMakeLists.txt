@@ -39,17 +39,46 @@ find_package(OpenVINO REQUIRED)
 message(STATUS "OpenVINO ${OpenVINO_VERSION_MAJOR}.${OpenVINO_VERSION_MINOR}.${OpenVINO_VERSION_PATCH}: ${OpenVINO_DIR}")
 
 # =====================================================================
+# 海康 MVS 机器视觉 SDK（HIKROBOT MV-CU013 USB3.0 工业相机）
+#   头文件 + libMvCameraControl.so 已拷贝到 third_party/hikrobot/
+#   相机走 USB3 Vision 协议，不是 UVC，必须链这个库取流。
+# =====================================================================
+set(MVS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/hikrobot)
+set(MVS_INC ${MVS_DIR}/include)
+set(MVS_LIB ${MVS_DIR}/lib/amd64/libMvCameraControl.so)
+message(STATUS "MVS SDK: ${MVS_LIB}")
+
+# =====================================================================
+# 海康相机封装：单独编译成静态库，供 hikrobot_yolo / hikrobot_test 等调用
+#   （不参与下面“每个 .cpp 一个可执行文件”的规则，因为它没有 main）
+# =====================================================================
+add_library(hikrobot_camera STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/hikrobot_camera.cpp)
+target_include_directories(hikrobot_camera PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${MVS_INC})
+target_link_libraries(hikrobot_camera PUBLIC ${OpenCV_LIBS} ${MVS_LIB})
+
+# =====================================================================
 # 可执行文件：src/ 和 test/ 下的每个 .cpp 编译成一个目标
+#   （海康相机实现文件除外，它已编成上面的静态库）
 # =====================================================================
 file(GLOB EXAMPLE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp"
 )
+list(REMOVE_ITEM EXAMPLE_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/hikrobot_camera.cpp")
 
 foreach(src ${EXAMPLE_SOURCES})
     get_filename_component(example_name ${src} NAME_WE)
     add_executable(${example_name} ${src})
-    target_link_libraries(${example_name} PRIVATE ${OpenCV_LIBS} openvino::runtime)
+    target_include_directories(${example_name} PRIVATE ${MVS_INC})
+    target_link_libraries(${example_name} PRIVATE
+        hikrobot_camera ${OpenCV_LIBS} openvino::runtime ${MVS_LIB})
+    # 运行时能找到 libMvCameraControl.so（不依赖 LD_LIBRARY_PATH）
+    set_target_properties(${example_name} PROPERTIES
+        BUILD_RPATH "${MVS_DIR}/lib/amd64")
     # 把项目根目录作为编译期宏传给每个目标，
     # 源码里用 PROJECT_ROOT_DIR "/相对/路径" 拼出绝对路径，
     # 这样无论从哪个目录启动可执行文件都能找到模型/视频资源。

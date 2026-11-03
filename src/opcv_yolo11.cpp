@@ -23,6 +23,8 @@
 #include <cmath>
 #include <cstring>
 
+#include "hikrobot_camera.hpp"    // 海康工业相机封装
+
 using namespace std;
 
 const int   INPUT_SIZE     = 640;   // 模型输入边长
@@ -195,11 +197,14 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // 2. 打开摄像头，0表示默认摄像头，如果有多个摄像头，可以尝试1、2等
-    cv::VideoCapture cap(0);
+    // 2. 打开海康相机（HIKROBOT MV-CU013，USB3 Vision）
+    //    曝光 2ms / 增益 16，可通过命令行参数覆盖
+    double exposure_ms = (argc > 1) ? atof(argv[1]) : 2.0;
+    double gain        = (argc > 2) ? atof(argv[2]) : 16.0;
 
-    if (!cap.isOpened()) {
-        cerr << "Error_opening camera (index 0)" << endl;//判断是否打开摄像头
+    HikRobotCamera cam;
+    if (!cam.open(exposure_ms, gain)) {
+        cerr << "Error_opening hikrobot camera" << endl;//判断是否打开相机
         return -1;
     }
 
@@ -207,8 +212,7 @@ int main(int argc, char** argv) {
     bool printed_shape = false;// 用于只打印一次输出 shape
 
     while (true) {
-        cap >> frame;
-        if (frame.empty()) {
+        if (!cam.read(frame)) {
             cout << "读取摄像头画面失败" << endl;
             break;
         }
@@ -252,7 +256,7 @@ int main(int argc, char** argv) {
         if (cv::waitKey(1) == 27) break; // ESC 退出
     }
 
-    cap.release();
+    cam.close();
     cv::destroyAllWindows();
     return 0;
 }

@@ -1,0 +1,15 @@
+# 海康机器人 HIKROBOT USB3.0 工业相机 (MV-CU013 等) 授权规则
+# 作用: 让普通用户(plugdev 组)能访问海康相机 USB 设备, 否则 MVS SDK
+#       枚举相机时报 "资源申请失败 0x80000006"。
+#
+# 安装方法(需要 sudo):
+#   sudo cp 99-hikrobot.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger
+# 之后重新插拔一次相机(或触发后 MVS SDK 直接枚举即可)。
+
+# 海康威视/海康机器人 厂商 ID = 2bdf
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="2bdf", MODE="0666"
+
+# 兼容某些发行版把接口也当成独立节点的情况
+SUBSYSTEM=="usb", ATTR{idVendor}=="2bdf", MODE="0666"
