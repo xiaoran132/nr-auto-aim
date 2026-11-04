@@ -36,12 +36,13 @@ public:
     RCLCPP_INFO(get_logger(), "跟踪节点启动");
   }
 
+//收到检测结果时更新滤波器
 private:
   void onArmors(const rm_vision_interfaces::msg::Armors::SharedPtr msg)
   {
     if (msg->armors.empty()) {
       return;
-    }
+    }          //没检测到，返回
 
     // 选距离图像中心最近的一块
     const auto * best = &msg->armors.front();
@@ -51,6 +52,7 @@ private:
       }
     }
 
+    //预测，时间差
     const double now_sec = now().seconds();
     if (last_stamp_sec_ >= 0.0) {
       const double dt = now_sec - last_stamp_sec_;
@@ -59,28 +61,33 @@ private:
       }
     }
 
+    //更新
     const Eigen::Vector3d position(
       best->pose.position.x, best->pose.position.y, best->pose.position.z);
     kf_.update(position);
 
+    //低通平滑，yaw
     const double measured_yaw = best->yaw * M_PI / 180.0;
     yaw_ = wrapAngle(yaw_ + 0.5 * wrapAngle(measured_yaw - yaw_));
 
-    last_stamp_sec_ = now_sec;
-    last_seen_sec_ = now_sec;
+    //记录时间与状态
+    last_stamp_sec_ = now_sec;          //dt
+    last_seen_sec_ = now_sec;                //判丢失
     tracking_ = true;
   }
 
+//定时发布目标状态
   void onTimer()
   {
     if (last_seen_sec_ < 0.0) {
       return;
-    }
+    }                //丢失
 
     if (now().seconds() - last_seen_sec_ > lost_time_thres_) {
       tracking_ = false;
     }
 
+    //组装 Target 消息
     rm_vision_interfaces::msg::Target target;
     target.header.stamp = now();
     target.header.frame_id = "camera_optical_frame";
@@ -105,6 +112,7 @@ private:
     target_pub_->publish(target);
   }
 
+//成员变量
   ConstantVelocityKF kf_;
   double lost_time_thres_{1.0};
   bool tracking_{false};
