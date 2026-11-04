@@ -80,7 +80,7 @@ cv::Mat ArmorDetector::buildColorMask(const cv::Mat & image_bgr) const
     cv::max(channels[1], channels[0], gr);
     cv::subtract(channels[0], gr, diff);
   }
-//这里分支有点小问题￥
+//这里分支有点小问题（待解决）
   cv::Mat brightness;
   cv::max(channels[1], channels[2], brightness);
   cv::max(brightness, channels[0], brightness);
