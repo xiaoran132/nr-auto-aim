@@ -27,8 +27,9 @@ public:
     declare_parameter("detect_color", "red");
     declare_parameter("debug", true);
     declare_parameter("min_distance_mm", 300.0);
-    declare_parameter("max_distance_mm", 20000.0);
+    declare_parameter("max_distance_mm", 20000.0);                //声明并读取参数
 
+    //构建检测器
     DetectorParams params;
     params.color = get_parameter("detect_color").as_string();
     params.min_distance_mm = get_parameter("min_distance_mm").as_double();
@@ -36,9 +37,11 @@ public:
     detector_ = std::make_unique<ArmorDetector>(params);
     debug_ = get_parameter("debug").as_bool();
 
+    //相机内参
     camera_matrix_ = (cv::Mat_<double>(3, 3) << 1408.0, 0.0, 640.0, 0.0, 1408.0, 512.0, 0.0, 0.0, 1.0);
     dist_coeffs_ = cv::Mat::zeros(5, 1, CV_64F);
 
+    //订阅与发布（节点）
     image_sub_ = create_subscription<sensor_msgs::msg::Image>(
       "image_raw", 10, std::bind(&ArmorDetectorNode::onImage, this, std::placeholders::_1));
     info_sub_ = create_subscription<sensor_msgs::msg::CameraInfo>(
@@ -52,6 +55,7 @@ public:
     RCLCPP_INFO(get_logger(), "检测节点启动, 颜色=%s", params.color.c_str());
   }
 
+//接收相机内参
 private:
   void onCameraInfo(const sensor_msgs::msg::CameraInfo::SharedPtr msg)
   {
@@ -72,6 +76,7 @@ private:
     }
   }
 
+//主回调，消息
   void onImage(const sensor_msgs::msg::Image::SharedPtr msg)
   {
     cv_bridge::CvImagePtr cv_ptr;
@@ -82,6 +87,7 @@ private:
       return;
     }
 
+    //调用检测
     const auto armors = detector_->detect(cv_ptr->image, camera_matrix_, dist_coeffs_);
 
     rm_vision_interfaces::msg::Armors out;
@@ -94,6 +100,7 @@ private:
       item.type = armor.type;
       item.number = "";
 
+      //图像中心距离
       cv::Point2f armor_center(0.0F, 0.0F);
       for (const auto & corner : armor.corners) {
         armor_center += corner;
@@ -102,15 +109,18 @@ private:
       item.distance_to_image_center = static_cast<float>(std::hypot(
           static_cast<double>(armor_center.x - center.x),
           static_cast<double>(armor_center.y - center.y)));
+      //字段
       item.reproj_error = static_cast<float>(armor.reproj_error);
       item.yaw = static_cast<float>(armor.yaw);
       item.pitch = static_cast<float>(armor.pitch);
       item.distance = static_cast<float>(armor.distance_mm);
 
+      //平移
       item.pose.position.x = armor.tvec[0] / 1000.0;
       item.pose.position.y = armor.tvec[1] / 1000.0;
       item.pose.position.z = armor.tvec[2] / 1000.0;
 
+      //旋转向量 → 四元数（有点小问题）
       cv::Mat rotation;
       cv::Rodrigues(cv::Mat(armor.rvec), rotation);
       const double trace = rotation.at<double>(0, 0) + rotation.at<double>(1, 1) +
@@ -124,11 +134,13 @@ private:
       } else {
         item.pose.orientation.w = 1.0;
       }
-
+      
+//收集发布
       out.armors.push_back(item);
     }
     armors_pub_->publish(out);
-
+    
+//调试图像
     if (debug_ && debug_pub_) {
       cv_bridge::CvImage debug_msg;
       debug_msg.header = msg->header;
@@ -138,6 +150,7 @@ private:
     }
   }
 
+//变量
   std::unique_ptr<ArmorDetector> detector_;
   bool debug_{true};
   cv::Mat camera_matrix_;
@@ -151,6 +164,7 @@ private:
 
 }  // namespace rm_vision_cpp
 
+//主
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
