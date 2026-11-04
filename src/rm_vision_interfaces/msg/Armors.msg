@@ -1,0 +1,3 @@
+# 一帧内所有装甲板
+std_msgs/Header header
+Armor[] armors
