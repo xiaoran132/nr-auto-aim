@@ -19,6 +19,7 @@ ConstantVelocityKF::ConstantVelocityKF(double process_noise, double measurement_
   R_ = Eigen::Matrix3d::Identity() * measurement_noise;
 }
 
+//用观测位置重新初始化
 void ConstantVelocityKF::reset(const Eigen::Vector3d & position)
 {
   x_.setZero();
@@ -27,6 +28,7 @@ void ConstantVelocityKF::reset(const Eigen::Vector3d & position)
   initialized_ = true;
 }
 
+//dt 外推状态
 Eigen::Vector3d ConstantVelocityKF::predict(double dt)
 {
   const double step = std::max(dt, 1e-3);
@@ -38,6 +40,7 @@ Eigen::Vector3d ConstantVelocityKF::predict(double dt)
   return x_.head<3>();
 }
 
+//用观测位置修正状态
 Eigen::Vector3d ConstantVelocityKF::update(const Eigen::Vector3d & position)
 {
   if (!initialized_) {
@@ -54,6 +57,7 @@ Eigen::Vector3d ConstantVelocityKF::update(const Eigen::Vector3d & position)
   return x_.head<3>();
 }
 
+//角度归一化
 double wrapAngle(double angle)
 {
   while (angle > M_PI) {
