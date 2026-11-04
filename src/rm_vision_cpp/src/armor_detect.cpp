@@ -10,10 +10,10 @@
 
 namespace rm_vision_cpp
 {
-
+///装甲板大小
 const ArmorGeometry kSmallArmor{"small", 135.0, 55.0};
 const ArmorGeometry kLargeArmor{"large", 225.0, 55.0};
-
+///匿名命名空间工具函数
 namespace
 {
 
@@ -33,11 +33,13 @@ double percentileU8(const cv::Mat & mat, double p)
 
 }  // namespace
 
+
 ArmorDetector::ArmorDetector(const DetectorParams & params)
 : params_(params)
 {
 }
 
+///3D 模型点
 std::array<cv::Point3f, 4> armorObjectPoints(const ArmorGeometry & armor)
 {
   const float hw = static_cast<float>(armor.width / 2.0);
@@ -50,15 +52,17 @@ std::array<cv::Point3f, 4> armorObjectPoints(const ArmorGeometry & armor)
   };
 }
 
+///平移向量算偏航/俯仰角
 void anglesFromTvec(const cv::Vec3d & tvec, double & yaw_deg, double & pitch_deg)
 {
   const double x = tvec[0];
   const double y = tvec[1];
   const double z = tvec[2];
-  yaw_deg = std::atan2(x, z) * 180.0 / CV_PI;
-  pitch_deg = std::atan2(-y, std::hypot(x, z)) * 180.0 / CV_PI;
+  yaw_deg = std::atan2(x, z) * 180.0 / CV_PI;            //偏航
+  pitch_deg = std::atan2(-y, std::hypot(x, z)) * 180.0 / CV_PI;          //俯仰
 }
 
+//颜色阈值分割（三通道）
 cv::Mat ArmorDetector::buildColorMask(const cv::Mat & image_bgr) const
 {
   CV_Assert(image_bgr.type() == CV_8UC3);
@@ -76,7 +80,7 @@ cv::Mat ArmorDetector::buildColorMask(const cv::Mat & image_bgr) const
     cv::max(channels[1], channels[0], gr);
     cv::subtract(channels[0], gr, diff);
   }
-
+//这里分支有点小问题￥
   cv::Mat brightness;
   cv::max(channels[1], channels[2], brightness);
   cv::max(brightness, channels[0], brightness);
@@ -104,22 +108,22 @@ std::vector<LightBar> ArmorDetector::findLightBars(
   const cv::Mat & mask, const cv::Size & image_size) const
 {
   std::vector<std::vector<cv::Point>> contours;
-  cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+  cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);      //提取灯条 mask
 
   std::vector<LightBar> bars;
   for (const auto & contour : contours) {
     const double area = cv::contourArea(contour);
     if (area < 20.0) {
       continue;
-    }
+    }            //早点
 
-    const cv::RotatedRect rect = cv::minAreaRect(contour);
+    const cv::RotatedRect rect = cv::minAreaRect(contour);        //矩形旋转
     if (rect.size.width < 2.0F || rect.size.height < 2.0F) {
       continue;
     }
 
     cv::Point2f pts[4];
-    rect.points(pts);
+    rect.points(pts);      //角
 
     const cv::Point2f edge_a = pts[1] - pts[0];
     const cv::Point2f edge_b = pts[2] - pts[1];
@@ -131,15 +135,15 @@ std::vector<LightBar> ArmorDetector::findLightBars(
     if (length < 2.0) {
       continue;
     }
-    const double thickness = area / length;
+    const double thickness = area / length;        // 用面积/长度估厚度
     if (thickness < 1.0) {
       continue;
     }
 
     const double rect_area = static_cast<double>(rect.size.width) * rect.size.height;
-    const double fill = (rect_area > 1e-6) ? area / rect_area : 0.0;
-    const cv::Point2f axis = long_vec / static_cast<float>(length);
-    const double tilt = std::atan2(std::abs(axis.x), std::abs(axis.y)) * 180.0 / CV_PI;
+    const double fill = (rect_area > 1e-6) ? area / rect_area : 0.0;        //轮廓面积 / 矩形面积
+    const cv::Point2f axis = long_vec / static_cast<float>(length);            //灯条轴向单位向量
+    const double tilt = std::atan2(std::abs(axis.x), std::abs(axis.y)) * 180.0 / CV_PI;            //竖直方向的倾角
 
     if (length < params_.min_light_len_ratio * image_size.height ||
       length > params_.max_light_len_ratio * image_size.height)
@@ -162,7 +166,7 @@ std::vector<LightBar> ArmorDetector::findLightBars(
       if (edge_norm < 1e-6) {
         continue;
       }
-      if (std::abs(edge.dot(axis) / edge_norm) < 0.5) {
+      if (std::abs(edge.dot(axis) / edge_norm) < 0.5) {              // 与长轴夹角>60°的边=短边
         mids.push_back((pts[k] + pts[(k + 1) % 4]) * 0.5F);
       }
     }
@@ -188,6 +192,7 @@ std::vector<LightBar> ArmorDetector::findLightBars(
   return bars;
 }
 
+//判断两根灯条成甲板
 bool ArmorDetector::pairCost(
   const LightBar & left, const LightBar & right, double & width_ratio) const
 {
@@ -196,10 +201,10 @@ bool ArmorDetector::pairCost(
     return false;
   }
   if (std::abs(left.length - right.length) / mean_len > params_.max_length_ratio_diff) {
-    return false;
+    return false;          // 两根灯条长度应相近。1
   }
   if (std::abs(left.tilt_deg - right.tilt_deg) > params_.max_tilt_diff_deg) {
-    return false;
+    return false;               //平行.2
   }
 
   const cv::Point2f connector = right.center - left.center;
@@ -207,15 +212,15 @@ bool ArmorDetector::pairCost(
     static_cast<double>(connector.x), static_cast<double>(connector.y));
   width_ratio = distance / mean_len;
   if (width_ratio < params_.min_width_ratio || width_ratio > params_.max_width_ratio) {
-    return false;
+    return false;                  //两条的中心距 / 平均灯条长。3
   }
 
   const cv::Point2f unit = connector / static_cast<float>(std::max(distance, 1e-6));
   if (std::abs(unit.dot(left.axis)) > params_.max_perpendicular_cos) {
-    return false;
+    return false;                      //连线应大致垂直于灯条。4
   }
   if (std::abs(left.center.y - right.center.y) / mean_len > params_.max_y_offset_ratio) {
-    return false;
+    return false;                      //高度差不能太大。5
   }
 
   const double left_lo = std::min(left.top.y, left.bottom.y);
@@ -224,11 +229,12 @@ bool ArmorDetector::pairCost(
   const double right_hi = std::max(right.top.y, right.bottom.y);
   const double overlap = std::min(left_hi, right_hi) - std::max(left_lo, right_lo);
   if (overlap < params_.min_y_overlap_ratio * mean_len) {
-    return false;
+    return false;                    //数直的重叠。6
   }
   return true;
 }
 
+//pairLightBars的配对（可能有点问题）
 std::vector<std::pair<LightBar, LightBar>> ArmorDetector::pairLightBars(
   const std::vector<LightBar> & bars) const
 {
@@ -238,7 +244,7 @@ std::vector<std::pair<LightBar, LightBar>> ArmorDetector::pairLightBars(
     double width_ratio;
     LightBar left;
     LightBar right;
-  };
+  };          //拷贝
 
   std::vector<Candidate> candidates;
   for (size_t i = 0; i < bars.size(); ++i) {
@@ -254,11 +260,11 @@ std::vector<std::pair<LightBar, LightBar>> ArmorDetector::pairLightBars(
       }
       candidates.push_back(Candidate{std::abs(width_ratio - 3.0), width_ratio, left, right});
     }
-  }
+  }              //枚举筛选
 
   std::sort(
     candidates.begin(), candidates.end(),
-    [](const Candidate & a, const Candidate & b) {return a.cost < b.cost;});
+    [](const Candidate & a, const Candidate & b) {return a.cost < b.cost;});            //排序
 
   std::vector<std::pair<LightBar, LightBar>> pairs;
   std::vector<bool> used(bars.size(), false);
@@ -294,6 +300,7 @@ std::vector<std::pair<LightBar, LightBar>> ArmorDetector::pairLightBars(
   return pairs;
 }
 
+//主流程
 std::vector<Armor> ArmorDetector::detect(
   const cv::Mat & image_bgr,
   const cv::Mat & camera_matrix,
@@ -311,12 +318,13 @@ std::vector<Armor> ArmorDetector::detect(
       static_cast<double>(right.center.x - left.center.x),
       static_cast<double>(right.center.y - left.center.y)) /
       (0.5 * (left.length + right.length));
-
+    //
     Armor armor;
     armor.type = (width_ratio >= params_.large_threshold_ratio) ? "large" : "small";
     armor.width_ratio = width_ratio;
     armor.corners = {left.bottom, left.top, right.top, right.bottom};
 
+    //pnp
     const ArmorGeometry & geometry = (armor.type == "large") ? kLargeArmor : kSmallArmor;
     const auto object_points = armorObjectPoints(geometry);
 
@@ -340,11 +348,11 @@ std::vector<Armor> ArmorDetector::detect(
       squared_error += delta.x * delta.x + delta.y * delta.y;
     }
     armor.reproj_error = std::sqrt(squared_error / static_cast<double>(projected.size()));
-
+//欧氏距离
     armor.rvec = cv::Vec3d(rvec.at<double>(0), rvec.at<double>(1), rvec.at<double>(2));
     armor.tvec = cv::Vec3d(tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2));
     armor.distance_mm = std::sqrt(armor.tvec.dot(armor.tvec));
-
+//过滤
     if (armor.distance_mm < params_.min_distance_mm ||
       armor.distance_mm > params_.max_distance_mm)
     {
@@ -357,6 +365,7 @@ std::vector<Armor> ArmorDetector::detect(
   return results;
 }
 
+//可视化
 cv::Mat drawDetections(const cv::Mat & image, const std::vector<Armor> & armors)
 {
   cv::Mat canvas = image.clone();
