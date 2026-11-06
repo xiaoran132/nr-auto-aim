@@ -20,8 +20,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
-#include <ctime>
-#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -32,6 +30,7 @@
 #include <opencv2/opencv.hpp>
 
 #include "io/camera.hpp"
+#include "tools/image_saver.hpp"
 
 namespace
 {
@@ -56,36 +55,6 @@ void on_trackbar(int value, void * userdata)
     std::fprintf(
       stderr, "[WARN] %s=%d 设置失败（相机不支持或当前模式不允许）\n", control->name.c_str(),
       target);
-}
-
-std::string timestamp_name()
-{
-  using namespace std::chrono;
-
-  const auto now = system_clock::now();
-  const auto ms = duration_cast<milliseconds>(now.time_since_epoch()) % 1000;
-  const std::time_t t = system_clock::to_time_t(now);
-
-  std::tm tm{};
-  localtime_r(&t, &tm);
-
-  std::ostringstream ss;
-  ss << std::put_time(&tm, "%Y%m%d_%H%M%S") << '_' << std::setw(3) << std::setfill('0')
-     << ms.count() << ".jpg";
-  return ss.str();
-}
-
-bool save_frame(const cv::Mat & frame, const std::string & dir, std::string & out_path)
-{
-  std::error_code ec;
-  std::filesystem::create_directories(dir, ec);
-  if (ec && !std::filesystem::exists(dir)) {
-    std::fprintf(stderr, "[FAIL] 无法创建目录 %s: %s\n", dir.c_str(), ec.message().c_str());
-    return false;
-  }
-
-  out_path = (std::filesystem::path(dir) / timestamp_name()).string();
-  return cv::imwrite(out_path, frame);
 }
 
 int prop_int(const io::Camera & cam, int prop)
@@ -202,7 +171,7 @@ int main(int argc, char ** argv)
     }
 
     std::string path;
-    if (!save_frame(frame, save_dir, path)) {
+    if (!tools::save_image(frame, save_dir, path)) {
       std::cerr << "[FAIL] 图片保存失败" << std::endl;
       cam.close();
       return -1;
@@ -267,7 +236,7 @@ int main(int argc, char ** argv)
 
     if (key == 's' || key == ' ') {
       std::string path;
-      if (save_frame(frame, save_dir, path))
+      if (tools::save_image(frame, save_dir, path))
         std::cout << "[OK] 已保存: " << path << std::endl;
       else
         std::cerr << "[FAIL] 图片保存失败" << std::endl;

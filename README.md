@@ -47,7 +47,7 @@ cmake --build out/build/debug -j"$(nproc)"
 | 程序 | 说明 |
 |------|------|
 | `04_check_model` | 打印 ONNX 模型输出形状 |
-| `camera_test` | 相机取流测试（无界面） |
+| `camera_test` | 相机取流测试（无界面，图片存 `img/tmp/`） |
 | `camera_viewer` | 相机实时窗口 + 参数滑条，`s`/空格抓拍，`d` 导出 YAML，`q`/ESC 退出 |
 | `camera_yolo` | 相机 + YOLO11 实时识别 |
 | `opcv_yolo5/8/11` | 各版本 YOLO 推理示例 |

@@ -1,6 +1,6 @@
 // =====================================================================
 // 相机取流最小测试：按 configs/camera.yaml 的 camera_name 打开相机，
-// 连续抓 N 帧 -> 统计帧率 -> 保存一张图。
+// 连续抓 N 帧 -> 统计帧率 -> 保存一张图到 ./img/tmp/。
 //   usbcamera —— 普通 USB / UVC 摄像头（cv::VideoCapture）
 //   hikrobot  —— 海康 USB3 Vision 工业相机（MVS SDK）
 // 用法: ./camera_test [抓取帧数]
@@ -11,6 +11,7 @@
 #include <string>
 
 #include "io/camera.hpp"
+#include "tools/image_saver.hpp"
 
 using namespace std;
 
@@ -43,9 +44,11 @@ int main(int argc, char** argv) {
          << "s, 平均帧率 " << (sec > 0 ? ok / sec : 0) << " fps" << endl;
 
     if (ok > 0 && !img.empty()) {
-        string out_path = PROJECT_ROOT_DIR "/camera_test.jpg";
-        cv::imwrite(out_path, img);
-        cout << "[OK] 已保存首帧到 " << out_path << endl;
+        string out_path;
+        if (tools::save_image(img, PROJECT_ROOT_DIR "/img/tmp", out_path))
+            cout << "[OK] 已保存首帧到 " << out_path << endl;
+        else
+            cerr << "[FAIL] 图片保存失败" << endl;
     }
 
     cam.close();
