@@ -24,10 +24,10 @@
 
 ## 2. SDK 文件位置
 
-完整 MVS SDK 已拷贝进项目，位于 `third_party/hikrobot/`：
+完整 MVS SDK 已拷贝进项目，位于 `io/hikrobot/`：
 
 ```
-third_party/hikrobot/
+io/hikrobot/
 ├── include/                        # SDK 头文件（7 个 .h）
 │   ├── MvCameraControl.h           # 核心 API（枚举/打开/取流/参数设置）
 │   ├── CameraParams.h
@@ -70,7 +70,7 @@ third_party/hikrobot/
 
 工业相机取流需要普通用户对 USB 设备有**写权限**（做控制传输）。默认设备节点是 `root:root 0664`，普通用户只读，会导致同样报 `0x80000006`。
 
-项目里已提供规则文件 `third_party/hikrobot/99-hikrobot.rules`，内容：
+项目里已提供规则文件 `io/hikrobot/99-hikrobot.rules`，内容：
 
 ```
 # 海康威视/海康机器人 厂商 ID = 2bdf
@@ -81,7 +81,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="2bdf", MODE="0666"
 安装（需要 sudo，装一次永久生效）：
 
 ```bash
-sudo cp third_party/hikrobot/99-hikrobot.rules /etc/udev/rules.d/
+sudo cp io/hikrobot/99-hikrobot.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
@@ -90,7 +90,7 @@ sudo udevadm trigger
 
 ### 3.3 运行库查找（RPATH）
 
-CMake 已通过 `BUILD_RPATH` 把 `third_party/hikrobot/lib/amd64` 写进每个可执行文件的运行时搜索路径，所以运行程序时**不用手动设 `LD_LIBRARY_PATH`**。
+CMake 已通过 `BUILD_RPATH` 把 `io/hikrobot/lib/amd64` 写进每个可执行文件的运行时搜索路径，所以运行程序时**不用手动设 `LD_LIBRARY_PATH`**。
 
 ---
 
@@ -100,8 +100,8 @@ CMake 已通过 `BUILD_RPATH` 把 `third_party/hikrobot/lib/amd64` 写进每个�
 
 相机封装拆成两个文件：
 
-- `src/hikrobot_camera.hpp` —— 接口声明
-- `src/hikrobot_camera.cpp` —— 实现（内部调用 MVS SDK）
+- `io/hikrobot/hikrobot.hpp` —— 接口声明
+- `io/hikrobot/hikrobot.cpp` —— 实现（内部调用 MVS SDK）
 
 对外只有一个类 `HikRobotCamera`：
 
@@ -114,6 +114,9 @@ public:
     // 枚举并打开第一台 USB 相机，设置曝光/增益后开始取流
     bool open(double exposure_ms = 2.0, double gain = 16.0);
 
+    // 从 YAML 配置读取相机参数后打开（读取 exposure_ms / gain）
+    bool open(const std::string& config_path);
+
     // 取一帧，内部把 Bayer/Mono/RGB 统一转成 BGR 的 cv::Mat
     bool read(cv::Mat& bgr);
 
@@ -125,10 +128,10 @@ public:
 **任何识别程序接入相机的最小套路：**
 
 ```cpp
-#include "hikrobot_camera.hpp"          // ① 引入头文件
+#include "io/hikrobot/hikrobot.hpp"     // ① 引入头文件
 
 HikRobotCamera cam;                     // ② 声明相机对象
-cam.open(2.0, 16.0);                    // ③ 打开(曝光ms, 增益)
+cam.open(PROJECT_ROOT_DIR "/configs/camera.yaml");  // ③ 读配置打开
 
 cv::Mat frame;
 while (cam.read(frame)) {               // ④ 循环取帧，frame 是 BGR 的 cv::Mat
@@ -143,13 +146,14 @@ cam.close();                            // ⑤ 关闭
 
 ```cpp
 // ① 顶部加头文件
-#include "hikrobot_camera.hpp"
+#include "io/hikrobot/hikrobot.hpp"
 
 // ② 打开相机（原来 cv::VideoCapture cap(0);）
-double exposure_ms = (argc > 1) ? atof(argv[1]) : 2.0;
-double gain        = (argc > 2) ? atof(argv[2]) : 16.0;
 HikRobotCamera cam;
-if (!cam.open(exposure_ms, gain)) { return -1; }
+const bool opened = (argc > 2)
+    ? cam.open(atof(argv[1]), atof(argv[2]))              // 命令行优先
+    : cam.open(PROJECT_ROOT_DIR "/configs/camera.yaml");  // 否则读配置
+if (!opened) { return -1; }
 
 // ③ 取帧（原来 cap >> frame; if(frame.empty())）
 if (!cam.read(frame)) { break; }
@@ -160,26 +164,57 @@ cam.close();
 
 其余推理代码（letterbox / blob / infer / 后处理 / 画框）完全不用动。
 
-### 4.3 CMake 配置
+### 4.3 在 USB 摄像头与海康相机之间切换
 
-`CMakeLists.txt` 里做了三件事：
+两类相机使用不同的实现类：
+
+| `camera_name` | 实现类 | 取流方式 |
+|---|---|---|
+| `usbcamera` | `io::UsbCamera` | OpenCV `cv::VideoCapture` + V4L2 |
+| `hikrobot` | `HikRobotCamera` | 海康 MVS SDK |
+
+`io::Camera` 工厂读取 `configs/camera.yaml` 的 `camera_name`，创建对应实现，
+所以 `camera_test`、`camera_yolo`、`opcv_yolo11` 不需要改代码即可切换：
+
+```yaml
+camera_name: "usbcamera"
+device_index: 0
+fourcc: "MJPG"       # 部分摄像头用 YUYV 会丢包花屏
+image_width: 640
+image_height: 480
+fps: 30
+auto_exposure: 0     # 0 = 手动，1 = 自动
+exposure: 100
+brightness: 128
+```
+
+改回海康：
+
+```yaml
+camera_name: "hikrobot"
+exposure_ms: 2
+gain: 16
+vid_pid: "2bdf:0001"
+```
+
+### 4.4 CMake 配置
+
+相机代码已归入 `io` 模块，`io/CMakeLists.txt` 把它编成静态库：
 
 ```cmake
-# 1) 定义 MVS SDK 路径
-set(MVS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/hikrobot)
-set(MVS_INC ${MVS_DIR}/include)
-set(MVS_LIB ${MVS_DIR}/lib/amd64/libMvCameraControl.so)
+add_library(io STATIC hikrobot/hikrobot.cpp)
 
-# 2) 相机实现单独编成静态库（因为它没有 main，不能被当成可执行文件）
-add_library(hikrobot_camera STATIC ${CMAKE_CURRENT_SOURCE_DIR}/src/hikrobot_camera.cpp)
-target_include_directories(hikrobot_camera PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${MVS_INC})
-target_link_libraries(hikrobot_camera PUBLIC ${OpenCV_LIBS} ${MVS_LIB})
+target_include_directories(io PUBLIC
+    ${PROJECT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/hikrobot/include)
 
-# 3) 每个可执行文件链接 hikrobot_camera（并把相机 .cpp 从 glob 里排除）
-list(REMOVE_ITEM EXAMPLE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/hikrobot_camera.cpp)
-target_link_libraries(${example_name} PRIVATE hikrobot_camera ${OpenCV_LIBS} openvino::runtime ${MVS_LIB})
-set_target_properties(${example_name} PROPERTIES BUILD_RPATH "${MVS_DIR}/lib/amd64")
+target_link_directories(io PUBLIC ${NR_HIKROBOT_LIB_DIR})
+target_link_libraries(io PUBLIC ${OpenCV_LIBS} tools MvCameraControl)
 ```
+
+根 `CMakeLists.txt` 按架构设置 `NR_HIKROBOT_LIB_DIR`（x86_64 → `io/hikrobot/lib/amd64`），
+需要相机的可执行文件只写 `target_link_libraries(<target> PRIVATE io ...)`，
+并通过 `BUILD_RPATH` 在运行时定位 `libMvCameraControl.so`。
 
 ---
 
@@ -193,10 +228,10 @@ CMAKE_POLICY_VERSION_MINIMUM=3.5 cmake --preset "GCC 15.2.0 x86_64-linux-gnu"
 cmake --build "out/build/GCC 15.2.0 x86_64-linux-gnu" -j$(nproc)
 
 # 无界面取流测试（抓 30 帧，打印帧率，存一张图）
-./out/build/GCC\ 15.2.0\ x86_64-linux-gnu/hikrobot_test 30
+./out/build/GCC\ 15.2.0\ x86_64-linux-gnu/camera_test 30
 
 # 相机 + YOLO11 完整识别（ESC 退出）
-./out/build/GCC\ 15.2.0\ x86_64-linux-gnu/hikrobot_yolo
+./out/build/GCC\ 15.2.0\ x86_64-linux-gnu/camera_yolo
 ./out/build/GCC\ 15.2.0\ x86_64-linux-gnu/opcv_yolo11   # 接入相机的 opcv_yolo11 版本
 
 # 手动指定曝光/增益
@@ -214,7 +249,7 @@ cmake --build "out/build/GCC 15.2.0 x86_64-linux-gnu" -j$(nproc)
 | 分辨率 | 1280×1024 | 相机原生 |
 | 帧率 | ~96 fps | 当前未显式设帧率，跑在相机默认 |
 
-在 `src/hikrobot_camera.cpp` 的 `open()` 里已做：
+在 `io/hikrobot/hikrobot.cpp` 的 `open()` 里已做：
 
 ```cpp
 MV_CC_SetEnumValue(handle_, "BalanceWhiteAuto", MV_BALANCEWHITE_AUTO_CONTINUOUS); // 自动白平衡开
@@ -234,7 +269,7 @@ MV_CC_SetFloatValue(handle_, "Gain", gain);                                     
 
 两种原因，按顺序排查：
 
-1. **SDK 不完整**（缺 `libMvUsb3vTL.so`）——检查 `third_party/hikrobot/lib/amd64/` 里是否有 `libMvUsb3vTL.so`。没有就按 3.1 节补完整包。
+1. **SDK 不完整**（缺 `libMvUsb3vTL.so`）——检查 `io/hikrobot/lib/amd64/` 里是否有 `libMvUsb3vTL.so`。没有就按 3.1 节补完整包。
 2. **USB 权限不足**——检查 `ls -la /dev/bus/usb/*/`，海康设备节点是否为 `0666`（`crw-rw-rw-`）。不是就按 3.2 节装 udev 规则。
 
 ### 7.2 相机根本没出现在虚拟机里
@@ -258,7 +293,7 @@ libusb_claim_interface(h, 0)  // 成功 = 控制传输 OK
 
 ### 7.4 画面偏色（绿/紫）
 
-说明 Bayer 模式判断错了。`hikrobot_camera.cpp` 里已按 `raw.stFrameInfo.enPixelType` 自动选 `COLOR_BayerGR2BGR` / `RG` / `GB` / `BG`，一般不会错；若仍偏色，打印 `enPixelType` 核对是哪种 Bayer 排列。
+说明 Bayer 模式判断错了。`io/hikrobot/hikrobot.cpp` 里已按 `raw.stFrameInfo.enPixelType` 自动选 `COLOR_BayerGR2BGR` / `RG` / `GB` / `BG`，一般不会错；若仍偏色，打印 `enPixelType` 核对是哪种 Bayer 排列。
 
 ---
 
@@ -266,9 +301,9 @@ libusb_claim_interface(h, 0)  // 成功 = 控制传输 OK
 
 | 文件 | 作用 |
 |------|------|
-| `third_party/hikrobot/` | 完整 MVS SDK + udev 规则 |
-| `src/hikrobot_camera.hpp/.cpp` | 相机封装（接口 + 实现） |
-| `src/hikrobot_test.cpp` | 无界面取流测试 |
-| `src/hikrobot_yolo.cpp` | 相机 + YOLO11 完整示例 |
+| `io/hikrobot/` | 完整 MVS SDK + udev 规则 |
+| `io/hikrobot/hikrobot.hpp/.cpp` | 相机封装（接口 + 实现） |
+| `tests/camera_test.cpp` | 无界面取流测试（相机类型由配置决定） |
+| `src/camera_yolo.cpp` | 相机 + YOLO11 完整示例 |
 | `src/opcv_yolo11.cpp` | 接入相机的 opcv_yolo11 示例 |
 | `CMakeLists.txt` | 静态库 + 链接 + RPATH 配置 |

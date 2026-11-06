@@ -18,7 +18,7 @@
 #include <cstring>
 #include <iomanip>
 
-#include "hikrobot_camera.hpp"
+#include "io/camera.hpp"
 
 using namespace std;
 
@@ -151,13 +151,9 @@ static void draw(cv::Mat& img, const vector<Detection>& dets) {
 }
 
 int main(int argc, char** argv) {
-    // 相机参数: 曝光 2ms / 增益 16 (可命令行覆盖, 与 sp_vision_25 配置一致)
-    double exposure_ms = (argc > 1) ? atof(argv[1]) : 2.0;
-    double gain        = (argc > 2) ? atof(argv[2]) : 16.0;
-
     // 1. 加载 YOLO 模型 (OpenVINO)
-    string xml_path = PROJECT_ROOT_DIR "/assents_sp/yolo11.xml";
-    string bin_path = PROJECT_ROOT_DIR "/assents_sp/yolo11.bin";
+    string xml_path = PROJECT_ROOT_DIR "/assets/yolo11.xml";
+    string bin_path = PROJECT_ROOT_DIR "/assets/yolo11.bin";
 
     ov::Core            core;
     ov::CompiledModel   compiled;
@@ -171,13 +167,13 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // 2. 打开海康相机
-    HikRobotCamera cam;
-    if (!cam.open(exposure_ms, gain)) {
-        cerr << "打开海康相机失败!" << endl;
+    // 2. 按 configs/camera.yaml 的 camera_name 打开相机（usbcamera / hikrobot）
+    io::Camera cam(PROJECT_ROOT_DIR "/configs/camera.yaml");
+    if (!cam.isOpened()) {
+        cerr << "打开相机失败!" << endl;
         return -1;
     }
-    cout << "海康相机已打开 (exposure=" << exposure_ms << "ms, gain=" << gain << ")" << endl;
+    cout << "相机已打开" << endl;
 
     cv::Mat frame;
     bool printed_shape = false;

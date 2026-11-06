@@ -4,7 +4,7 @@ using namespace std;
 using namespace cv;
 
 int main() {
-    Mat img = cv::imread("C:\\Users\\xwct\\Desktop\\opcv\\tp\\F07BC7274BAE171DA5C1FA74505BD1E4.jpg");
+    Mat img = cv::imread(PROJECT_ROOT_DIR "/assets/standard_fanblade.jpg");
     
     if (img.empty()) {
         cout << "ereer" << endl;

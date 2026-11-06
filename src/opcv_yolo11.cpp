@@ -23,7 +23,7 @@
 #include <cmath>
 #include <cstring>
 
-#include "hikrobot_camera.hpp"    // 海康工业相机封装
+#include "io/camera.hpp"    // 相机工厂（usbcamera / hikrobot）
 
 using namespace std;
 
@@ -180,8 +180,8 @@ static void draw(cv::Mat& img, const vector<Detection>& dets) {
 int main(int argc, char** argv) {
     // 读取模型文件路径（OpenVINO IR 格式）
     //根据开发需要自行修改
-    string xml_path = PROJECT_ROOT_DIR "/assents_sp/yolo11.xml";
-    string bin_path = PROJECT_ROOT_DIR "/assents_sp/yolo11.bin";
+    string xml_path = PROJECT_ROOT_DIR "/assets/yolo11.xml";
+    string bin_path = PROJECT_ROOT_DIR "/assets/yolo11.bin";
 
     // 1. 加载 YOLO 模型并编译（OpenVINO C++ API）
     ov::Core            core;
@@ -197,14 +197,10 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // 2. 打开海康相机（HIKROBOT MV-CU013，USB3 Vision）
-    //    曝光 2ms / 增益 16，可通过命令行参数覆盖
-    double exposure_ms = (argc > 1) ? atof(argv[1]) : 2.0;
-    double gain        = (argc > 2) ? atof(argv[2]) : 16.0;
-
-    HikRobotCamera cam;
-    if (!cam.open(exposure_ms, gain)) {
-        cerr << "Error_opening hikrobot camera" << endl;//判断是否打开相机
+    // 2. 按 configs/camera.yaml 的 camera_name 打开相机（usbcamera / hikrobot）
+    io::Camera cam(PROJECT_ROOT_DIR "/configs/camera.yaml");
+    if (!cam.isOpened()) {
+        cerr << "Error_opening camera" << endl;//判断是否打开相机
         return -1;
     }
 

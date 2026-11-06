@@ -1,13 +1,15 @@
 // =====================================================================
 // 海康机器人(HIKROBOT) USB3.0 机器视觉相机封装 —— 实现
-//   接口见 hikrobot_camera.hpp
+//   接口见 hikrobot.hpp
 // =====================================================================
 
-#include "hikrobot_camera.hpp"
+#include "hikrobot.hpp"
 
 #include <cstdio>
+#include <string>
 
 #include "MvCameraControl.h"
+#include "tools/yaml.hpp"
 
 HikRobotCamera::HikRobotCamera()
 : handle_(nullptr), grabbing_(false)
@@ -65,6 +67,30 @@ bool HikRobotCamera::open(double exposure_ms, double gain)
 
     grabbing_ = true;
     return true;
+}
+
+bool HikRobotCamera::open(const std::string& config_path)
+{
+    try {
+        const YAML::Node yaml = tools::load(config_path);
+
+        const std::string camera_name = tools::read<std::string>(yaml, "camera_name");
+        if (camera_name != "hikrobot") {
+            std::fprintf(stderr,
+                         "[HikRobot] 配置中的 camera_name 为 \"%s\"，不是 hikrobot\n",
+                         camera_name.c_str());
+            return false;
+        }
+
+        const double exposure_ms = tools::read<double>(yaml, "exposure_ms");
+        const double gain        = tools::read<double>(yaml, "gain");
+        // vid_pid 预留给后续按 VID/PID 选择设备，当前封装打开第一台 USB 相机
+        return open(exposure_ms, gain);
+    }
+    catch (const std::exception& e) {
+        std::fprintf(stderr, "[HikRobot] 读取配置失败: %s\n", e.what());
+        return false;
+    }
 }
 
 bool HikRobotCamera::read(cv::Mat& bgr)

@@ -7,7 +7,7 @@
 //       YOLOv8 / YOLO11 官方导出的 ONNX 用了高版本 opset，OpenCV DNN 解析会报
 //       "Concat ... Inconsistent shape" 错误，所以这里用 YOLOv5。
 //
-// 运行：编译后在可执行文件目录下放好 yolov5s.onnx 和 coco.names，直接运行即可。
+// 运行：默认从 assets/ 读取 yolov5s.onnx 和 coco.names，直接运行即可。
 
 
 //       也可以命令行指定： 03_yolo_camera.exe 模型路径.onnx 类别文件.names
@@ -44,8 +44,10 @@ std::vector<std::string> load_classes(const std::string & path)
 int main(int argc, char ** argv)
 {
   // 模型和类别文件路径（可用命令行参数覆盖）
-  const std::string model_path = (argc > 1) ? argv[1] : "yolov5s.onnx";
-  const std::string names_path = (argc > 2) ? argv[2] : "coco.names";
+  const std::string model_path =
+    (argc > 1) ? argv[1] : PROJECT_ROOT_DIR "/assets/yolov5s.onnx";
+  const std::string names_path =
+    (argc > 2) ? argv[2] : PROJECT_ROOT_DIR "/assets/coco.names";
 
   auto classes = load_classes(names_path);//判断命名模型加载是否成功
   if (classes.empty()) return -1;

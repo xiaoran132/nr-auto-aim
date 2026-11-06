@@ -1,10 +1,16 @@
-# vscode
+# IDE
 .vscode/
 
-# CMake
-build/
+# CMake / build
+/build/
+/out/
+/CMakeFiles/
+/CMakeCache.txt
+CMakeUserPresets.json
 
-#.gitattributes
-.gitattributes/
-#
-.CMakeLists.txt/
+# SDK 日志与运行时输出
+MvSdkLog/
+/camera_test.jpg
+
+# 抓拍图片
+/img/tmp/

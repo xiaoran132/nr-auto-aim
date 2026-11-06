@@ -1,0 +1,28 @@
+# camera_name 决定使用哪个相机实现：
+#   "usbcamera" —— 普通 USB / UVC 摄像头（cv::VideoCapture）
+#   "hikrobot"  —— 海康 USB3 Vision 工业相机（MVS SDK）
+camera_name: "usbcamera"
+
+# ---------- USB / UVC 摄像头 ----------
+device_index: 0       # /dev/video0
+fourcc: "MJPG"        # MJPG 带宽小、稳定；部分摄像头用 YUYV 会花屏
+image_width: 640
+image_height: 480
+fps: 30
+# 该摄像头自动曝光会黑屏，改用手动曝光 + 亮度
+auto_exposure: 0      # 0 = 手动，1 = 自动
+exposure: 100
+brightness: 128
+# 以下参数可选；在 camera_viewer 里调好后按 d 导出当前值
+# contrast: 15
+# saturation: 32
+# hue: 0
+# sharpness: 1
+# gamma: 100
+# auto_wb: 1
+
+# ---------- 海康工业相机 ----------
+# 把上面的 camera_name 改成 "hikrobot" 后启用下面几项
+# exposure_ms: 2
+# gain: 16
+# vid_pid: "2bdf:0001"

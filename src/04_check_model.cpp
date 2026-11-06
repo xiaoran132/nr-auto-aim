@@ -3,8 +3,8 @@
 // 用途：加载一个 YOLO ONNX 模型，喂一张 640x640 的图，打印输出张量的形状。
 //       写后处理代码之前，先看这里的输出形状，就知道该怎么解析了。
 //
-// 运行： 04_check_model.exe [模型路径.onnx]
-//       （默认读取同目录下的 yolov5s.onnx）
+// 运行： 04_check_model [模型路径.onnx]
+//       （默认读取 assets/yolov5s.onnx）
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/dnn.hpp>
@@ -14,7 +14,8 @@
 
 int main(int argc, char ** argv)
 {
-  const std::string model_path = (argc > 1) ? argv[1] : "yolov5s.onnx";
+  const std::string model_path =
+    (argc > 1) ? argv[1] : PROJECT_ROOT_DIR "/assets/yolov5s.onnx";
 
   // 加载模型
   cv::dnn::Net net = cv::dnn::readNetFromONNX(model_path);

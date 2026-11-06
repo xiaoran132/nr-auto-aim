@@ -1,24 +1,25 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(opencv_learning LANGUAGES CXX)
+project(nr_auto_aim LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+endif()
+
 # =====================================================================
 # 依赖
-#   OpenCV   : libopencv-dev（系统库，find_package 自动找到）
-#   OpenVINO : 解压安装于 /opt/intel/l_openvino_toolkit_ubuntu22_.../runtime/cmake
-#              路径已通过 CMakePresets.json 的 cacheVariables 指定 OpenVINO_DIR。
-#              如需改用其他安装位置，可在配置时覆盖：
-#                cmake --preset "..." -DOpenVINO_DIR=...
+#   OpenCV    : libopencv-dev
+#   OpenVINO  : libopenvino-dev（find_package 自动定位系统安装路径）
+#   yaml-cpp  : libyaml-cpp-dev（读取 configs/*.yaml）
 # =====================================================================
 find_package(OpenCV REQUIRED)
 message(STATUS "OpenCV ${OpenCV_VERSION}: ${OpenCV_DIR}")
 
-# opcv_yolo5 / opcv_yolo8 调用 cv::dnn::readNetFromModelOptimizer，
-# 要求 OpenCV 编译时开启 -DWITH_OPENVINO=ON。发行版包通常是 OFF，
-# 这里只告警、不阻断其余目标编译。
+# opcv_yolo5 使用 cv::dnn::readNetFromModelOptimizer，要求 OpenCV 编译时
+# 开启 -DWITH_OPENVINO=ON。发行版包通常是 OFF，这里只告警、不阻断编译。
 find_library(_opencv_dnn_lib NAMES opencv_dnn)
 if(_opencv_dnn_lib)
     execute_process(
@@ -28,60 +29,79 @@ if(_opencv_dnn_lib)
     if(NOT _opencv_dnn_ldd MATCHES "openvino")
         message(WARNING
             "OpenCV（${_opencv_dnn_lib}）未链接 OpenVINO 后端，"
-            "opcv_yolo5 / opcv_yolo8 运行时会报 "
+            "opcv_yolo5 运行时会报 "
             "Backend (plugin) is not available: 'openvino'。")
     endif()
 endif()
 
-# OpenVINO C++ API：yolo11 等模型直接用它推理，
-# 不经过 OpenCV dnn 的 OpenVINO 后端。
 find_package(OpenVINO REQUIRED)
-message(STATUS "OpenVINO ${OpenVINO_VERSION_MAJOR}.${OpenVINO_VERSION_MINOR}.${OpenVINO_VERSION_PATCH}: ${OpenVINO_DIR}")
+message(STATUS
+    "OpenVINO ${OpenVINO_VERSION_MAJOR}.${OpenVINO_VERSION_MINOR}.${OpenVINO_VERSION_PATCH}: "
+    "${OpenVINO_DIR}")
+
+find_package(yaml-cpp REQUIRED)
 
 # =====================================================================
-# 海康 MVS 机器视觉 SDK（HIKROBOT MV-CU013 USB3.0 工业相机）
-#   头文件 + libMvCameraControl.so 已拷贝到 third_party/hikrobot/
-#   相机走 USB3 Vision 协议，不是 UVC，必须链这个库取流。
+# 海康 MVS 机器视觉 SDK（位于 io/hikrobot/）
 # =====================================================================
-set(MVS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/hikrobot)
-set(MVS_INC ${MVS_DIR}/include)
-set(MVS_LIB ${MVS_DIR}/lib/amd64/libMvCameraControl.so)
-message(STATUS "MVS SDK: ${MVS_LIB}")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    set(NR_HIKROBOT_LIB_DIR "${PROJECT_SOURCE_DIR}/io/hikrobot/lib/amd64")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+    set(NR_HIKROBOT_LIB_DIR "${PROJECT_SOURCE_DIR}/io/hikrobot/lib/arm64")
+else()
+    message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+endif()
+message(STATUS "MVS SDK: ${NR_HIKROBOT_LIB_DIR}")
+
+add_subdirectory(tools)
+add_subdirectory(io)
 
 # =====================================================================
-# 海康相机封装：单独编译成静态库，供 hikrobot_yolo / hikrobot_test 等调用
-#   （不参与下面“每个 .cpp 一个可执行文件”的规则，因为它没有 main）
+# 可执行文件（src/ 与 tests/ 各一个 .cpp 对应一个 target）
 # =====================================================================
-add_library(hikrobot_camera STATIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/hikrobot_camera.cpp)
-target_include_directories(hikrobot_camera PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${MVS_INC})
-target_link_libraries(hikrobot_camera PUBLIC ${OpenCV_LIBS} ${MVS_LIB})
+add_executable(04_check_model src/04_check_model.cpp)
+add_executable(05             src/05.cpp)
+add_executable(camera_test    tests/camera_test.cpp)
+add_executable(camera_viewer  tests/camera_viewer.cpp)
+add_executable(opcv_yolo5     src/opcv_yolo5.cpp)
+add_executable(opcv_yolo8     src/opcv_yolo8.cpp)
+add_executable(opcv_yolo11    src/opcv_yolo11.cpp)
+add_executable(video_yolo     src/video_yolo.cpp)
+add_executable(camera_yolo    src/camera_yolo.cpp)
+add_executable(dir_test       tests/dir_test.cpp)
+add_executable(yolo_test      tests/yolo_test.cpp)
 
-# =====================================================================
-# 可执行文件：src/ 和 test/ 下的每个 .cpp 编译成一个目标
-#   （海康相机实现文件除外，它已编成上面的静态库）
-# =====================================================================
-file(GLOB EXAMPLE_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp"
-)
-list(REMOVE_ITEM EXAMPLE_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/hikrobot_camera.cpp")
+target_link_libraries(04_check_model PRIVATE ${OpenCV_LIBS})
+target_link_libraries(05             PRIVATE ${OpenCV_LIBS})
+target_link_libraries(camera_test    PRIVATE io ${OpenCV_LIBS})
+target_link_libraries(camera_viewer  PRIVATE io ${OpenCV_LIBS})
+target_link_libraries(opcv_yolo5     PRIVATE ${OpenCV_LIBS})
+target_link_libraries(opcv_yolo8     PRIVATE ${OpenCV_LIBS} openvino::runtime)
+target_link_libraries(opcv_yolo11    PRIVATE io ${OpenCV_LIBS} openvino::runtime)
+target_link_libraries(video_yolo     PRIVATE ${OpenCV_LIBS} openvino::runtime)
+target_link_libraries(camera_yolo    PRIVATE io ${OpenCV_LIBS} openvino::runtime)
+target_link_libraries(dir_test       PRIVATE ${OpenCV_LIBS})
+target_link_libraries(yolo_test      PRIVATE ${OpenCV_LIBS})
 
-foreach(src ${EXAMPLE_SOURCES})
-    get_filename_component(example_name ${src} NAME_WE)
-    add_executable(${example_name} ${src})
-    target_include_directories(${example_name} PRIVATE ${MVS_INC})
-    target_link_libraries(${example_name} PRIVATE
-        hikrobot_camera ${OpenCV_LIBS} openvino::runtime ${MVS_LIB})
-    # 运行时能找到 libMvCameraControl.so（不依赖 LD_LIBRARY_PATH）
-    set_target_properties(${example_name} PROPERTIES
-        BUILD_RPATH "${MVS_DIR}/lib/amd64")
-    # 把项目根目录作为编译期宏传给每个目标，
-    # 源码里用 PROJECT_ROOT_DIR "/相对/路径" 拼出绝对路径，
-    # 这样无论从哪个目录启动可执行文件都能找到模型/视频资源。
-    target_compile_definitions(${example_name} PRIVATE
-        PROJECT_ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+# 所有目标统一：
+#   PROJECT_ROOT_DIR —— 源码里拼出项目根目录下的资源路径，与启动目录无关
+#   BUILD_RPATH      —— 运行时找到 libMvCameraControl.so，无需 LD_LIBRARY_PATH
+set(NR_EXECUTABLES
+    04_check_model
+    05
+    camera_test
+    camera_viewer
+    opcv_yolo5
+    opcv_yolo8
+    opcv_yolo11
+    video_yolo
+    camera_yolo
+    dir_test
+    yolo_test)
+
+foreach(target IN LISTS NR_EXECUTABLES)
+    target_compile_definitions(${target} PRIVATE
+        PROJECT_ROOT_DIR="${PROJECT_SOURCE_DIR}")
+    set_target_properties(${target} PROPERTIES
+        BUILD_RPATH "${NR_HIKROBOT_LIB_DIR}")
 endforeach()
