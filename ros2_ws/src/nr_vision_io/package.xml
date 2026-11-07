@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>nr_vision_io</name>
+  <version>0.2.0</version>
+  <description>相机驱动封装：直接编译 main 分支的 io/（海康 MVS + USB/UVC），并提供标定加载与 CameraInfo 构造</description>
+  <maintainer email="nr@example.com">NR Team</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>sensor_msgs</depend>
+  <depend>libopencv-dev</depend>
+  <depend>yaml-cpp</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

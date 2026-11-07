@@ -1,0 +1,35 @@
+# 参数分三层之一：节点参数（相机标定见 configs/calibration.yaml，相机硬件见 configs/camera.yaml）
+# 路径留空表示使用编译期 NR_REPO_ROOT（即本仓库根目录）下的默认文件。
+
+/camera_node:
+  ros__parameters:
+    camera_config: ""            # 空 = <repo>/configs/camera.yaml
+    calibration_file: ""         # 空 = <repo>/configs/calibration.yaml
+    frame_id: camera_optical_frame
+    fps: 30.0
+    use_sensor_data_qos: true
+    video_file: ""               # 非空则用视频文件回放（无硬件调试）
+
+/armor_detector:
+  ros__parameters:
+    model_xml: ""                # 空 = <repo>/assets/yolo11.xml
+    model_bin: ""                # 空 = <repo>/assets/yolo11.bin
+    score_threshold: 0.5
+    nms_threshold: 0.45
+    enemy_color: "red"           # red / blue / any
+    keep_extra_colors: false     # 是否保留 E(灭灯)/P(紫色)
+    small_armor_width: 135.0     # mm
+    large_armor_width: 225.0     # mm
+    armor_height: 55.0           # mm
+    max_reproj_error: 5.0        # px
+    min_distance_mm: 300.0
+    max_distance_mm: 20000.0
+    debug: true
+
+/armor_tracker:
+  ros__parameters:
+    lost_time_thres: 0.5         # s
+    process_noise: 0.01
+    measurement_noise: 0.1
+    publish_rate: 20.0           # Hz
+    target_frame: ""             # 非空则用 tf2 变换到该坐标系（如 odom）
