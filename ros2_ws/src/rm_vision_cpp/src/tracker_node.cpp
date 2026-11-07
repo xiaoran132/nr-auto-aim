@@ -51,6 +51,7 @@ public:
     timer_ = this->create_wall_timer(period, std::bind(&TrackerNode::onTimer, this));
   }
 
+//收到检测结果时更新滤波器
 private:
   void onArmors(const rm_vision_interfaces::msg::Armors::SharedPtr msg)
   {
@@ -58,6 +59,7 @@ private:
       return;
     }
 
+     // 选距离图像中心最近的一块
     const auto * best = &msg->armors.front();
     for (const auto & armor : msg->armors) {
       if (armor.distance_to_image_center < best->distance_to_image_center) {
@@ -95,6 +97,7 @@ private:
     }
     kf_.update(position);
 
+     //低通平滑，yaw
     const double measured_yaw = static_cast<double>(best->yaw) * M_PI / 180.0;
     yaw_ = wrapAngle(yaw_ + 0.5 * wrapAngle(measured_yaw - yaw_));
 
@@ -104,6 +107,7 @@ private:
     tracking_ = true;
   }
 
+//定时发布目标状态
   void onTimer()
   {
     if (!last_stamp_set_) {
@@ -112,7 +116,8 @@ private:
     if ((this->now() - last_seen_).seconds() > lost_time_thres_) {
       tracking_ = false;
     }
-
+    
+  //组装 Target 消息
     rm_vision_interfaces::msg::Target target;
     target.header.stamp = this->now();
     target.header.frame_id = frame_.empty() ? "camera_optical_frame" : frame_;
@@ -138,6 +143,7 @@ private:
     target_pub_->publish(target);
   }
 
+//成员变量
   ConstantVelocityKF kf_{0.01, 0.1};
   double lost_time_thres_{0.5};
   double publish_rate_{20.0};
