@@ -1,4 +1,3 @@
-// 检测节点：YOLO11 + 关键点排序 + PnP（nr_vision_detector 薄壳）
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -22,6 +21,7 @@
 #include "nr_vision_detector/yolo_detector.hpp"
 #include "rm_vision_interfaces/msg/armor.hpp"
 #include "rm_vision_interfaces/msg/armors.hpp"
+// 检测节点：YOLO11 + 关键点排序 + PnP（nr_vision_detector 薄壳）
 
 namespace rm_vision_cpp
 {
