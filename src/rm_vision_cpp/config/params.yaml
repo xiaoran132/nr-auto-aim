@@ -1,0 +1,25 @@
+# 参数按节点名分组（与 chenjunnn/rm_vision 的写法一致）
+
+/video_source:
+  ros__parameters:
+    source: "0"                    # 0 = 默认摄像头；也可填视频路径或图片目录
+    fps: 30.0
+    frame_id: camera_optical_frame
+    loop: true
+    fx: 1408.0
+    fy: 1408.0
+    cx: 640.0
+    cy: 512.0
+
+/armor_detector:
+  ros__parameters:
+    detect_color: red
+    debug: true
+    min_distance_mm: 300.0
+    max_distance_mm: 20000.0
+
+/armor_tracker:
+  ros__parameters:
+    lost_time_thres: 1.0
+    process_noise: 0.01
+    measurement_noise: 0.1

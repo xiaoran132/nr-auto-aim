@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rm_vision_cpp</name>
+  <version>0.2.0</version>
+  <description>ROS2 节点层：camera / armor_detector / armor_tracker（薄壳，算法在 nr_vision_* 包里）</description>
+  <maintainer email="nr@example.com">NR Team</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>image_transport</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>eigen</depend>
+  <depend>libopencv-dev</depend>
+  <depend>rm_vision_interfaces</depend>
+  <depend>nr_vision_io</depend>
+  <depend>nr_vision_detector</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>nr_vision_detector</name>
+  <version>0.2.0</version>
+  <description>YOLO11 装甲板检测（38 类 + 4 关键点）+ 关键点排序 + PnP 位姿解算</description>
+  <maintainer email="nr@example.com">NR Team</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>libopencv-dev</depend>
+  <!-- OpenVINO 需手动安装（见 ros2_ws/README.md），不放入 rosdep -->
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
