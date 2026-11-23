@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
         }
 
         // 按 'q' 退出
-        if (waitKey(1) == 'q') {
+        if (waitKey(1) == 27) {
             break;
         }
     }

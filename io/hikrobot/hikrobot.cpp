@@ -31,7 +31,7 @@ bool HikRobotCamera::open(double exposure_ms, double gain)
         std::fprintf(stderr,
                      "[HikRobot] 未找到 USB 相机 (MV_CC_EnumDevices=0x%x, 设备数=%u)\n",
                      ret, device_list.nDeviceNum);
-        return false;
+        return false;7
     }
 
     ret = MV_CC_CreateHandle(&handle_, device_list.pDeviceInfo[0]);

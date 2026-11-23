@@ -70,6 +70,7 @@ add_executable(video_yolo     src/video_yolo.cpp)
 add_executable(camera_yolo    src/camera_yolo.cpp)
 add_executable(dir_test       tests/dir_test.cpp)
 add_executable(yolo_test      tests/yolo_test.cpp)
+add_executable(tiny_resnet_test tests/tiny_resnet_test.cpp)
 
 target_link_libraries(04_check_model PRIVATE ${OpenCV_LIBS})
 target_link_libraries(05             PRIVATE ${OpenCV_LIBS})
@@ -82,6 +83,7 @@ target_link_libraries(video_yolo     PRIVATE ${OpenCV_LIBS} openvino::runtime)
 target_link_libraries(camera_yolo    PRIVATE io ${OpenCV_LIBS} openvino::runtime)
 target_link_libraries(dir_test       PRIVATE ${OpenCV_LIBS})
 target_link_libraries(yolo_test      PRIVATE ${OpenCV_LIBS})
+target_link_libraries(tiny_resnet_test PRIVATE ${OpenCV_LIBS})
 
 # 所有目标统一：
 #   PROJECT_ROOT_DIR —— 源码里拼出项目根目录下的资源路径，与启动目录无关
@@ -97,7 +99,8 @@ set(NR_EXECUTABLES
     video_yolo
     camera_yolo
     dir_test
-    yolo_test)
+    yolo_test
+    tiny_resnet_test)
 
 foreach(target IN LISTS NR_EXECUTABLES)
     target_compile_definitions(${target} PRIVATE
