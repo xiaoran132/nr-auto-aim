@@ -6,11 +6,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # =====================================================================
-# 依赖（均使用本机系统库，不需要手动指定路径）
-#   OpenCV   : libopencv-dev
-#   OpenVINO : 系统安装的 runtime（位于 /usr/lib/cmake/openvino*）
-# 如需改用其他安装位置，可在配置时覆盖：
-#   cmake -DOpenCV_DIR=... -DOpenVINO_DIR=...
+# 依赖
+#   OpenCV   : libopencv-dev（系统库，find_package 自动找到）
+#   OpenVINO : 解压安装于 /opt/intel/l_openvino_toolkit_ubuntu22_.../runtime/cmake
+#              路径已通过 CMakePresets.json 的 cacheVariables 指定 OpenVINO_DIR。
+#              如需改用其他安装位置，可在配置时覆盖：
+#                cmake --preset "..." -DOpenVINO_DIR=...
 # =====================================================================
 find_package(OpenCV REQUIRED)
 message(STATUS "OpenCV ${OpenCV_VERSION}: ${OpenCV_DIR}")
@@ -49,4 +50,9 @@ foreach(src ${EXAMPLE_SOURCES})
     get_filename_component(example_name ${src} NAME_WE)
     add_executable(${example_name} ${src})
     target_link_libraries(${example_name} PRIVATE ${OpenCV_LIBS} openvino::runtime)
+    # 把项目根目录作为编译期宏传给每个目标，
+    # 源码里用 PROJECT_ROOT_DIR "/相对/路径" 拼出绝对路径，
+    # 这样无论从哪个目录启动可执行文件都能找到模型/视频资源。
+    target_compile_definitions(${example_name} PRIVATE
+        PROJECT_ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 endforeach()

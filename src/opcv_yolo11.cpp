@@ -178,8 +178,8 @@ static void draw(cv::Mat& img, const vector<Detection>& dets) {
 int main(int argc, char** argv) {
     // 读取模型文件路径（OpenVINO IR 格式）
     //根据开发需要自行修改
-    string xml_path = R"(C:\Users\xwct\Desktop\nr-auto-aim\assents_sp\yolo11.xml)";
-    string bin_path = R"(C:\Users\xwct\Desktop\nr-auto-aim\assents_sp\yolo11.bin)";
+    string xml_path = PROJECT_ROOT_DIR "/assents_sp/yolo11.xml";
+    string bin_path = PROJECT_ROOT_DIR "/assents_sp/yolo11.bin";
 
     // 1. 加载 YOLO 模型并编译（OpenVINO C++ API）
     ov::Core            core;
